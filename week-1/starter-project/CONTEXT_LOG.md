@@ -526,17 +526,17 @@ Completa la tabla con los resultados obtenidos al auditar los símbolos con `uv 
 
 | Estrategia de Recolección de Contexto | Alcance (Archivos / Nodos) | Caracteres Totales | Tokens (`tiktoken o200k_base`) | % de Reducción vs. Fuerza Bruta |
 | :--- | :--- | :---: | :---: | :---: |
-| **1. Fuerza Bruta (`glob` + `read` todo)** | Todos los archivos del proyecto | 60698 | 16430 tokens | 91.1% (Línea base) |
-| **2. Búsqueda Textual (`grep` + `read` `.py`)** | Archivos `.py` donde aparece el símbolo | 32105 | 8487 tokens | 82.7% |
-| **3. Semántica vía LSP (`definition` + `references` + `hover`)** | Solo definición, tipos asociados y líneas de invocación | 5734 | 1467 tokens | --- |
+| **1. Fuerza Bruta (`glob` + `read` todo)** | Todos los archivos del proyecto | 60698 | 16430 tokens | 0% (Línea base) |
+| **2. Búsqueda Textual (`grep` + `read` `.py`)** | Archivos `.py` donde aparece el símbolo | 32105 | 8487 tokens | 48.3445% |
+| **3. Semántica vía LSP (`definition` + `references` + `hover`)** | Solo definición, tipos asociados y líneas de invocación | 5734 | 1467 tokens | 91.0712% |
 
 *Tabla: classify_incident_report*
 
 | Estrategia de Recolección de Contexto | Alcance (Archivos / Nodos) | Caracteres Totales | Tokens (`tiktoken o200k_base`) | % de Reducción vs. Fuerza Bruta |
 | :--- | :--- | :---: | :---: | :---: |
-| **1. Fuerza Bruta (`glob` + `read` todo)** | Todos los archivos del proyecto | 60698 | 16430 tokens | 94.5% (Línea base) |
-| **2. Búsqueda Textual (`grep` + `read` `.py`)** | Archivos `.py` donde aparece el símbolo | 11175 | 3050 tokens | 70.4% |
-| **3. Semántica vía LSP (`definition` + `references` + `hover`)** | Solo definición, tipos asociados y líneas de invocación | 3399 | 903 tokens | --- |
+| **1. Fuerza Bruta (`glob` + `read` todo)** | Todos los archivos del proyecto | 60698 | 16430 tokens | 0% (Línea base) |
+| **2. Búsqueda Textual (`grep` + `read` `.py`)** | Archivos `.py` donde aparece el símbolo | 11175 | 3050 tokens | 81.4364% |
+| **3. Semántica vía LSP (`definition` + `references` + `hover`)** | Solo definición, tipos asociados y líneas de invocación | 3399 | 903 tokens | 94.5040% |
 
 ### 4.2 Comparación de Formatos de Serialización (`--compare-formats`)
 Registra los tokens medidos con `tiktoken` para los 10 incidentes en JSON indentado, JSON compacto, YAML y CSV, y explica qué formato elegirías al inyectar datos tabulares o logs largos en la ventana de contexto.
