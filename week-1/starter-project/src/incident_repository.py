@@ -18,6 +18,9 @@ from typing import Any, Dict, List
 from src.models import Incident, SeverityLevel
 from src.sla_calculator import SLA_POLICY_TABLE, evaluate_sla_status
 
+# Estados considerados activos (constante interna fija; ver ADR-001).
+_ACTIVE_STATUSES = ("OPEN", "IN_PROGRESS")
+
 
 class IncidentRepository:
     """Gestiona la persistencia de incidentes y políticas de SLA en SQLite."""
@@ -59,6 +62,13 @@ class IncidentRepository:
                 """,
                 (rule.severity, rule.max_resolution_minutes, 1 if rule.operates_24x7 else 0),
             )
+        # ADR-001: índice compuesto para el patrón de acceso component + status.
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_incidents_component_status
+            ON incidents (component, status)
+            """
+        )
         self.conn.commit()
 
     def seed_synthetic_incidents(self, total_records: int = 10000) -> None:
@@ -109,29 +119,22 @@ class IncidentRepository:
     ) -> List[Dict[str, Any]]:
         """Obtiene el resumen de incidentes activos para un componente específico.
 
-        ANTI-PATRÓN INTENCIONAL (Para diagnosticar y refactorizar en la Fase 2):
-        - Trae las 10,000 filas con `SELECT * FROM incidents` y filtra en Python.
-        - Por cada fila coincidente, ejecuta un `SELECT` separado a `sla_policies` (N+1).
+        ADR-001 (Opción C): una única consulta SQL filtrada por `component` y estados
+        activos, con ORDER BY fijo. Todos los valores viajan como parámetros `?`; la
+        cantidad de marcadores se deriva de una constante interna, nunca de entrada del
+        usuario. El SLA se sigue evaluando en Python con el `Incident` completo.
         """
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM incidents")
-        all_rows = cursor.fetchall()
+        placeholders = ", ".join("?" for _ in _ACTIVE_STATUSES)
+        query = (
+            "SELECT incident_id, title, component, severity, status, created_at, resolved_at "
+            "FROM incidents "
+            f"WHERE component = ? AND status IN ({placeholders}) "
+            "ORDER BY incident_id"
+        )
+        cursor = self.conn.execute(query, (component_filter, *_ACTIVE_STATUSES))
 
         results: List[Dict[str, Any]] = []
-        for row in all_rows:
-            if row["status"] not in ("OPEN", "IN_PROGRESS"):
-                continue
-            if row["component"] != component_filter:
-                continue
-
-            # Consulta N+1 innecesaria dentro del bucle
-            policy_cursor = self.conn.cursor()
-            policy_cursor.execute(
-                "SELECT max_resolution_minutes FROM sla_policies WHERE severity = ?",
-                (row["severity"],),
-            )
-            _ = policy_cursor.fetchone()
-
+        for row in cursor:
             incident = Incident(
                 incident_id=row["incident_id"],
                 title=row["title"],
@@ -191,4 +194,3 @@ def _run_benchmark() -> None:
 
 if __name__ == "__main__":
     _run_benchmark()
-

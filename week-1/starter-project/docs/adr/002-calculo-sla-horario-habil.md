@@ -101,7 +101,7 @@ flowchart TD
 Estos puntos no están cerrados y deben resolverse antes de pasar el ADR a *Aceptado*:
 
 1. **Evaluación histórica**: se propone `end_time = min(resolved_at, reference_time)` cuando existe `resolved_at`, de modo que evaluar «a una fecha pasada» no cuente tiempo posterior a `reference_time`.
-2. **Datetimes con `tzinfo`**: definir si el calculador los rechaza explícitamente con `ValueError` o si se asume que no llegan.
+2. ~~**Datetimes con `tzinfo`**~~ **Resuelto**: `evaluate_sla_status` rechaza con `ValueError` cualquier `created_at`, `resolved_at` o `reference_time` que incluya `tzinfo`. Sin esto, un datetime con zona leído desde la base de datos (p. ej. `...+00:00`) provocaba un `TypeError` al compararse con uno naive.
 3. **Datos inválidos en el repositorio**: definir cómo `incident_repository.py` trata un incidente `RESOLVED` sin `resolved_at` o con fechas incoherentes (omitir, registrar, fallar).
 
 ---
@@ -132,5 +132,6 @@ Estos puntos no están cerrados y deben resolverse antes de pasar el ADR a *Acep
 | Incidente resuelto | `RESOLVED` con `resolved_at` | el reloj se detiene; `requires_escalation = False` |
 | P0 / P1 | 61 min de pared en P0; cruce de fin de semana en P1 | minutos de pared; P0 vencido |
 | Fechas incoherentes | `end_time` anterior a `created_at` | `ValueError` |
+| Datetime con zona horaria | `created_at`, `resolved_at` o `reference_time` con `tzinfo` | `ValueError` (no `TypeError`) |
 
   Además, el caso de referencia en `sla_calculator.py:87` (lunes 2026-11-09 09:00) debe seguir ejecutándose sin cambios de firma.

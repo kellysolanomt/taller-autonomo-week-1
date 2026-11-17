@@ -468,6 +468,31 @@ Copia el prompt estructurado con etiquetas XML que utilizaste en un nuevo chat l
     </task>
 ```
 
+*Prompt de refactorización de sla_calculator.py:*
+
+Para este caso fue necesario iterar en varias oportunidades para refinar el código entregado:
+
+```xml
+Prompt 1: 
+
+Basado en el documento ADR-002 aprobado y el bloque <lsp_context> presentado de evaluate_sla_status, realiza la refactorización del archivo sla_calculator.py
+
+Prompt 2:
+
+Te comparto el archivo de incident repository, para que identifiques cómo se esta manejando las fechas, la evaluación historica y los date time, con base en eso definimos las decisiones pendientes.
+
+Prompt 3:
+
+No debemos cambiar el repositorio, solo calculator. Adoptemos la propuesta de datetimes con tzinfo. Las otras  no las consideremos por el momento.
+
+Prompt 4:
+
+para el archivo de sla_calculator.py, incluye en el bloque __main__ (o en el script de pruebas), la demostraión de al menos 5 casos borde, por ejemplo: cruces de fin de semana, creación fuera de horario, tickets 24/7 vs. horario hábil y demás, para determinar que se están calculando los minutos esperados.
+```
+
+El resultado de la prueba fue:
+
+![Resultado de cálculo de SLAs](img/paso2-3.png)
 ---
 
 ## 3. Tipos de Modelos y Matriz de Decisión Arquitectónica
@@ -478,15 +503,17 @@ Compara el comportamiento que observaste al interactuar con:
 2. **Modelo de Razonamiento Extendido (*Thinking Model*)**:
 - ¿En cuál de las tareas de la semana fue indispensable el modelo de razonamiento y en cuál bastó el modelo rápido?
 
+Durante la ejecución de las tareas se observó que los modelos de razonamiento, por ejemplo, Opus o Sonnet con un esfuerzo alto, fueron muy efectivos cuando se necesitaba explorar y analizar a fondo los errores o comportamientos de las clasificaciones. En el modelo rápido las respuestas tenían muchas inferencias del modelo, categorias inventadas y decisiones de organización ambiguas. Sin embargo, cuando se tienen las reglas definidas e instrucciones claras para construir por ejemplo un documento, el modelo rápido es más que suficiente, porque no debe decidir o razonar frente a posibilidades, porque son tareas claras con entregables definidos. Como aprendizaje de este taller se recalca que para actividades donde se deba planificar, investigar, analizar desde múltiples frentes un caso, se recomienda usar un modelo de razonamiento extendido. Para tareas con reglas establecidas, paso a paso claro y un entregable con un formato concreto, un modelo rápido es suficiente. 
+
 ### 3.2 Matriz de Decisión Arquitectónica
 Para la plataforma *IncidentOps* y su evolución futura, justifica qué paradigma es el adecuado en cada escenario:
 
 | Escenario / Requerimiento | Paradigma Elegido (Código Determinista / ML Clásico / Asistente GenAI en Chat / LLM en Tiempo de Ejecución) | Justificación Técnica (Determinismo, Costo, Latencia, Riesgo de Alucinación) |
 | :--- | :--- | :--- |
-| 1. Contabilizar minutos hábiles transcurridos y verificar si un ticket superó el 75% de su SLA | | |
-| 2. Explorar casos borde y redactar un ADR antes de modificar la arquitectura de consultas SQL | | |
-| 3. Detectar anomalías numéricas en millones de métricas de CPU/RAM por minuto | | |
-| 4. Clasificar reportes de incidentes redactados en lenguaje natural abierto cuando las reglas deterministas no cubren nuevos patrones | | |
+| 1. Contabilizar minutos hábiles transcurridos y verificar si un ticket superó el 75% de su SLA | Código determinista | Esta tarea es determinista y puede resolverse a través de un código convencional. Solo se requieren hacer cálculos entre los campos de los registros de incidentes y compararlos con las reglas de SLAs definidas en el sistema. |
+| 2. Explorar casos borde y redactar un ADR antes de modificar la arquitectura de consultas SQL | Asistente GenAI en Chat | Al ser una tarea que requiere de un análisis consistente y de planeación del documento ADR, se debe prevenir el riesgo de alucinaciones. Por eso se recomienda un asistente GenAI bajo un modelo de razonamiento, que le permita indagar en casos borde y redactar el plan de modificación de la arquitectura. |
+| 3. Detectar anomalías numéricas en millones de métricas de CPU/RAM por minuto | ML Clásico | Esta tarea requiere de una latencia muy baja y un costo computacional bajo, dado el volumen de métricas a procesar. Esta tarea la puede cubrir un ML clásico de clasificación numérica.  |
+| 4. Clasificar reportes de incidentes redactados en lenguaje natural abierto cuando las reglas deterministas no cubren nuevos patrones | LLM en Tiempo de Ejecución | Como los incidentes se redactan en lenguaje natural, un LLM en tiempo de ejecución puede comprender la semántica de las descripciones. Además puede manejar los nuevos patrones y reentrenarse a partir de ellos. |
 
 ---
 
@@ -495,11 +522,34 @@ Para la plataforma *IncidentOps* y su evolución futura, justifica qué paradigm
 ### 4.1 Medición Empírica en *IncidentOps*
 Completa la tabla con los resultados obtenidos al auditar los símbolos con `uv run python -m src.context_audit --symbol evaluate_sla_status` (y `classify_incident_report`):
 
+*Tabla: evaluate_sla_status*
+
 | Estrategia de Recolección de Contexto | Alcance (Archivos / Nodos) | Caracteres Totales | Tokens (`tiktoken o200k_base`) | % de Reducción vs. Fuerza Bruta |
 | :--- | :--- | :---: | :---: | :---: |
-| **1. Fuerza Bruta (`glob` + `read` todo)** | Todos los archivos del proyecto | | | 0% (Línea base) |
-| **2. Búsqueda Textual (`grep` + `read` `.py`)** | Archivos `.py` donde aparece el símbolo | | | |
-| **3. Semántica vía LSP (`definition` + `references` + `hover`)** | Solo definición, tipos asociados y líneas de invocación | | | |
+| **1. Fuerza Bruta (`glob` + `read` todo)** | Todos los archivos del proyecto | 60698 | 16430 tokens | 91.1% (Línea base) |
+| **2. Búsqueda Textual (`grep` + `read` `.py`)** | Archivos `.py` donde aparece el símbolo | 32105 | 8487 tokens | 82.7% |
+| **3. Semántica vía LSP (`definition` + `references` + `hover`)** | Solo definición, tipos asociados y líneas de invocación | 5734 | 1467 tokens | --- |
+
+*Tabla: classify_incident_report*
+
+| Estrategia de Recolección de Contexto | Alcance (Archivos / Nodos) | Caracteres Totales | Tokens (`tiktoken o200k_base`) | % de Reducción vs. Fuerza Bruta |
+| :--- | :--- | :---: | :---: | :---: |
+| **1. Fuerza Bruta (`glob` + `read` todo)** | Todos los archivos del proyecto | 60698 | 16430 tokens | 94.5% (Línea base) |
+| **2. Búsqueda Textual (`grep` + `read` `.py`)** | Archivos `.py` donde aparece el símbolo | 11175 | 3050 tokens | 70.4% |
+| **3. Semántica vía LSP (`definition` + `references` + `hover`)** | Solo definición, tipos asociados y líneas de invocación | 3399 | 903 tokens | --- |
 
 ### 4.2 Comparación de Formatos de Serialización (`--compare-formats`)
 Registra los tokens medidos con `tiktoken` para los 10 incidentes en JSON indentado, JSON compacto, YAML y CSV, y explica qué formato elegirías al inyectar datos tabulares o logs largos en la ventana de contexto.
+
+*IMPACTO DEL FORMATO DE DATOS EN LA VENTANA DE CONTEXTO (10 Incidentes)*
+
+ Tokenizador activo: tiktoken (o200k_base) 
+
+| Formato de Serialización | Caracteres | Tokens |
+| :--- | :--- | :--- |
+|JSON Indentado (indent=2) | 2942 | 878 tokens |
+| JSON Compacto (minified) | 2641 | 728 tokens |
+| YAML Equivalente | 2579 | 755 tokens |
+| CSV Delimitado por "\|"  | 2171 | 617 tokens |
+
+Dados los resultados, el formato de serialización más conveniente para insertar en una ventana de contexto es el **CSV Delimitado por "\|"** porque es el que tienen menor cantidad de caracteres, lo cual consume menos cantidad de tokens cuando se pasa como un prompt a un asistente. Esto facilita a que la ventana de contexto de la conversación no se llene tan rápido con el procesamiento inicial del prompt y le sea más fácil escanear los incidentes, en comparación con los otros formatos, que tienen claves, etiquetas que se repiten en cada token, mientras que en el CSV solo se declaran en la cabecera. Es importante mencionar que esta es una opción óptima para datos tabulares, pero si se tuviera información anidada, si debe consierarse usar otros formatos como YAML o JSON a pesar del consumo de tokens.  
