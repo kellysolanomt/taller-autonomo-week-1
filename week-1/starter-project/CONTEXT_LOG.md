@@ -2,7 +2,7 @@
 
 **Estudiante(s)**: `Kelly Johana Solano Calderón`  
 **Fecha**: `2026-11-17`  
-**Modelos / Asistentes Utilizados**: `[Ej. Claude 4.5/5, GPT-4o/5, Gemini 2.5 Pro/Flash, etc.]`
+**Modelos / Asistentes Utilizados**: `Claude Haiku 5.5 (Medium), Claude Sonnet 5.5 (Medium), Claude Opus 5.5 (Medium), Claude Sonnet 5.5 (High)`
 
 ---
 
@@ -12,7 +12,7 @@
 Analiza el siguiente prompt deficiente para el Reto 1:
 > *"El archivo `triage_rules.py` funciona mal con algunos tickets del JSON. Agrégale el equipo recomendado y una clave para duplicados, y no pongas P0 cuando no sea urgente."*
 
-![Auditoría del Triaje, versión inicial](week-1\starter-project\img\paso1-1.png)
+![Auditoría del Triaje, versión inicial](img\paso1-1.png)
 
 Documenta al menos **3 modos de fallo o ambigüedades** de este prompt (p. ej., ausencia de contexto de dominio, restricciones negativas difusas, falta de enumeración de equipos válidos o ausencia de ejemplos canónicos):
 1. `Ausencia de contexto de dominio`: El prompt no aclara cuál es el criterio de clasificación de los tickets, cuáles son las categorias y por qué está funcionando mal. Esto provoca que el modelo entregue clasificaciones inventadas, criterios sin umbrales claros, formatos diversos y que todos los resultados dependan de su interpretación. 
@@ -21,13 +21,182 @@ Documenta al menos **3 modos de fallo o ambigüedades** de este prompt (p. ej., 
 
 ### 1.2 Uso de *Self-Consistency*, *Chain-of-Thought* y *Few-Shot Prompting*
 
-![Reporte de incidente inicial](week-1\starter-project\img\paso1-2.png)
+![Reporte de incidente inicial](img\paso1-2.png)
 
 - ¿Cómo utilizaste *Chain-of-Thought* (`<analysis>`) y *Self-Consistency* (múltiples consultas independientes) para definir las reglas de clasificación de los casos ambiguos (`INC-1002`, `INC-1007`, `INC-1009`) y la agrupación de duplicados (`INC-1001`/`INC-1006` e `INC-1003`/`INC-1008`)?
+
+El prompt inicial utilizado para *Chain-of-Thought* fue:
+
+```xml
+Analiza y razona paso a paso, dentro <analysis>...</analysis>,  sobre el alcance, el riesgo y la agrupación de los duplicados de los tickets. Hazlo con duplicados como INC-1001/INC-1006, INC-1002, INC-1003/INC-1008, INC-1007 e INC-1009.
+```
+
+Se hicieron 4 pruebas con este prompt y los 10 incidentes, haciendo la comparación entre modos rápidos y de razonamiento, y cambios entre modelos:
+
+*Prueba con Haiku 5.5 (Medium)*
+
+![Prueba con Haiku 5.5 (Medium)](img\paso1-2-1.png)
+
+*Prueba con Sonnet 5.5 (Medium)*
+
+![Prueba con Sonnet 5.5 (Medium)](img\paso1-2-2.png)
+
+*Prueba con Opus 5.5 (Medium)*
+
+![Prueba con Opus 5.5 (Medium)](img\paso1-2-3.png)
+
+*Prueba con Sonnet 5.5 (High)*
+
+![Prueba con Sonnet 5.5 (High)](img\paso1-2-4.png)
+
+Luego de este análisis, se logró identificar que en 3 de las 4 pruebas hubo consenso entre los modelos: existen 8 problemas distintos, 2 repetidos y 6 individuales. En los duplicados, se relaciona a la caída de la pasarela de pagos (por el error 502) y a la lentitud del sistema por la cantidad de registros. En el caso del modelo rápido de Haiku 5.5 (Medium), la clasificación fue diferente y más ambigüa, dado que no tuvo un paso estructurado para el análisis. 
+
+A partir de esa concordancia entre los resultados del Chain-of-Thought, con Self-Consitency, se estructuró el acuerdo entre los tres análisis, por ejemplo, a nivel de incidente detectado para cada nivel de severidad y el criterio para determinar si varios incidentes eran duplicados o no. Luego, condensé con mis palabras cada clasificación para construir el prompt estructurado, definiendo las reglas de dominio para severidad y para los equipos recomendados, creé dos ejemplos nuevos y su salida esperada, y especifiqué la tarea final. 
+
 - Copia el prompt mejorado que empleaste aplicando las técnicas clásicas (`<role>`, `<domain_rules>` con justificación del *porqué*, `<examples>` *Few-Shot* y `<task>`):
 
 ```xml
-<!-- Pega aquí tu prompt estructurado con <role>, <domain_rules>, <examples>, <task> -->
+<role>
+Actúa como Ingeniero Principal de Confiabilidad (SRE) y Seguridad en IncidentOps.
+</role>
+<context> 
+<lsp_context symbol="classify_incident_report">
+  <!-- 1. Definiciones de Tipos y Políticas (LSP Hover / Type Definition) -->
+# [LSP textDocument/hover type] src\models.py:12
+class SLARule:
+    """Define el acuerdo de nivel de servicio (SLA) para un nivel de severidad."""
+
+    severity: SeverityLevel
+    max_resolution_minutes: int
+    operates_24x7: bool
+    escalation_threshold_ratio: float = 0.75
+
+# [LSP textDocument/hover type] src\models.py:22
+class Incident:
+    """Representa un incidente registrado en la plataforma IncidentOps."""
+
+    incident_id: str
+    title: str
+    component: str
+    severity: SeverityLevel
+    status: IncidentStatus
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+
+# [LSP textDocument/hover type] src\models.py:35
+class SLAEvaluation:
+    """Resultado determinista de la evaluación de SLA de un incidente."""
+
+    incident_id: str
+    severity: SeverityLevel
+    elapsed_minutes: int
+    allowed_minutes: int
+    remaining_minutes: int
+    is_breached: bool
+    requires_escalation: bool
+
+# [LSP textDocument/hover type] src\models.py:48
+class TriageResult:
+    """Resultado estructurado producido por el clasificador de triaje con IA."""
+
+    incident_id: str
+    severity: SeverityLevel
+    component: str
+    rationale: str
+    consistency_ratio: float = 1.0
+
+# [LSP textDocument/hover symbol] src\sla_calculator.py:17
+SLA_POLICY_TABLE: Dict[SeverityLevel, SLARule] = {
+    "P0": SLARule(severity="P0", max_resolution_minutes=60, operates_24x7=True),
+    "P1": SLARule(severity="P1", max_resolution_minutes=240, operates_24x7=True),
+    "P2": SLARule(severity="P2", max_resolution_minutes=480, operates_24x7=False),
+    "P3": SLARule(severity="P3", max_resolution_minutes=1440, operates_24x7=False),
+}
+
+  <!-- 2. Definición Exacta del Símbolo (LSP GoToDefinition) -->
+# [LSP textDocument/definition] src\triage_rules.py:27
+def classify_incident_report(incident_id: str, raw_text: str) -> TriageResult:
+    """Clasifica un reporte de incidente aplicando reglas heurísticas iniciales.
+
+    DEUDA TÉCNICA INTENCIONAL:
+    - Evalúa palabras sueltas ("hoy", "urgente") antes de analizar el impacto real
+      (caída global vs. cuenta individual vs. entorno de staging).
+    - No normaliza componentes ni identifica el equipo de guardia correspondiente.
+    """
+    text_lower = raw_text.lower()
+
+    # Bug de diseño: si un usuario dice "necesito acceder hoy" por su cuenta bloqueada,
+    # se dispara como P0 antes de verificar si es una caída global o un caso individual.
+    if "urgente" in text_lower or "hoy" in text_lower or "502" in text_lower:
+        severity: SeverityLevel = "P0"
+    elif "94%" in text_lower or "timeout" in text_lower:
+        severity = "P1"
+    elif "lenta" in text_lower or "segundos" in text_lower:
+        severity = "P2"
+    else:
+        severity = "P3"
+
+    if "pago" in text_lower or "cobro" in text_lower or "tarjeta" in text_lower:
+        component = "payments-gateway"
+    elif "cuenta" in text_lower or "ingresar" in text_lower:
+        component = "auth-identity"
+    elif "postgresql" in text_lower or "conexiones" in text_lower:
+        component = "database-cluster"
+    elif "certificado" in text_lower or "tls" in text_lower:
+        component = "infra-certificates"
+    elif "botón" in text_lower or "color" in text_lower:
+        component = "frontend-ui"
+    else:
+        component = "reporting-api"
+
+    return TriageResult(
+        incident_id=incident_id,
+        severity=severity,
+        component=component,
+        rationale=f"Clasificación heurística legacy asignada a {component} ({severity}).",
+    )
+
+  <!-- 3. Referencias de Invocación en el Proyecto (LSP FindReferences) -->
+# [LSP textDocument/references] src\triage_rules.py:77
+  L76:     for item in incidents:
+  L77:         result = classify_incident_report(item["id"], item["raw_text"])
+  L78:         snippet = item["raw_text"][:45] + "..." if len(item["raw_text"]) > 45 else item["raw_text"]
+</lsp_context>
+</context> 
+<domain_rules>
+Se debe clasificar los tickets en los siguientes niveles de severidad:
+- PO: Es crítico. Refiere incidentes donde algún componente este caído, no funcione, y no permitan completar las operaciones correctamente (Ej: Error 502). El problema abarca todos los comercios o transacciones. También son problemas de seguridad dentro de los tenant (Ej: exposiciones de datos). Su riesgo influye una pérdida directa de clientes o de operaciones para la plataforma, riesgo de privacidad. 
+- P1: Es alto. Refiere incidentes relacionados con alertas de infraestructura, por ejemplo, sobre indicadores de sobrecarga de capacidad en componentes del sistema (Ej: alto porcentaje de conexiones). Es una degradación que puede llevar a una potencial caída. 
+- P2: Es medio. Refiere a un incidente donde hay una degradación leve de algún componente, por las propias capacidades del sistema o limitaciones en el rendimiento, pero no una caída o suspensión de la capacidad (Ej: superación de intentos para el ingreso, o lentitud de procesamiento por alto volumen). 
+- P3: Es bajo. Refiere a un incidente menor, que no relaciona a ningún inconveniente con la plataforma, sino a correcciones a nivel de interfaz UI, o actividades de mantenimiento periódicas de la plataforma. 
+
+Sobre la asignación de equipos:
+- Backend-Core: Problemas relacionados con servicios, integraciones, etc.
+- Platform-SRE: Problemas de infraestructura, certificados, etc.
+- Data-DBA: Problemas con la base de datos, la integridad de la información almacenada, etc.
+- Security-IAM: Problemas de autenticación, privacidad, etc.
+</domain_rules> 
+<examples> 
+<example>
+Input: "Estaba revisando la URL de la pasarela de pagos y al cambiar el parámetro de company_id se pueden abrir las facturas pendiente por pagar de otras empresas"
+<analysis>
+1. Es un riesgo de seguridad grande, porque afecta la privacidad de los usuarios.
+2. Potenciales implicaciones legales y regulatorias por la exposición de la información. 
+</analysis>
+<output>severity="P0", component="auth-identity", recommended_team="Security-IAM", duplicate_group_key="auth-identity:data_exposure"</output>
+</example>
+<example>
+Input: "La descarga del reporte anual está tardando más de 20 s, lo necesito para hoy"
+<analysis>
+1. El alcance es individual e indica que el componente de reportería sigue funcionando, pero está lento. Existe entonces una degradación leve. 
+2. Aunque el usuario indique "hoy", el alcance definido para las severidades indica que la prisa no es criterio para aumentar la severidad. 
+</analysis>
+<output>severity="P2", component="reporting-api", recommended_team="Backend-Core", duplicate_group_key="reporting-api:latency"</output>
+</example>
+</examples> 
+<task> 
+Refactoriza los archivos src/triage_rules.py y src/models.py, tomando como referencia los análisis y clasificaciones presentados. Ten en cuenta que estos archivos deben asignar correctamente la severidad (P0-P3), sugerir el recommended_team (Backend-Core, Platform-SRE, Data-DBA y Security-IAM) y definir para el caso de duplicados una duplicate_group_key, una clave normalizada con este formato:  (<component>:<symptom_category>). Esto, por cada uno de los incidentes. 
+</task> 
 ```
 
 ---
