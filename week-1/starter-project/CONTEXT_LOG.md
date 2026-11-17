@@ -255,8 +255,217 @@ Aceptando algunas sugerencias y descartando otras, se obtuvo el siguiente bloque
 ### 2.2 Ejecución con Contexto Curado en Nuevo Chat Limpio (*Context Engineering*)
 Copia el prompt estructurado con etiquetas XML que utilizaste en un nuevo chat limpio para generar el **ADR (`docs/adr/002-calculo-sla-horario-habil.md`)** y la refactorización de `src/sla_calculator.py`:
 
+*Prompt de generación del documento ADR:*
+
 ```xml
-<!-- Pega aquí tu prompt estructurado con <context>, <decision_summary>, <constraints>, <task> -->
+    <context>
+    Estamos optimizando la función que evalúa si un incidente ha incumplido su SLA o requiere un escalamiento preventivo, en los incidentes que llegan a IncidentOps. A continuación se incluye la definición actual de `evaluate_sla_status` extraída vía LSP y la plantilla oficial de ADR del equipo. 
+
+    <lsp_context symbol="evaluate_sla_status">
+    <!-- 1. Definiciones de Tipos y Políticas (LSP Hover / Type Definition) -->
+    # [LSP textDocument/hover type] src\models.py:31
+    class SLARule:
+        """Define el acuerdo de nivel de servicio (SLA) para un nivel de severidad."""
+
+        severity: SeverityLevel
+        max_resolution_minutes: int
+        operates_24x7: bool
+        escalation_threshold_ratio: float = 0.75
+
+    # [LSP textDocument/hover type] src\models.py:41
+    class Incident:
+        """Representa un incidente registrado en la plataforma IncidentOps."""
+
+        incident_id: str
+        title: str
+        component: str
+        severity: SeverityLevel
+        status: IncidentStatus
+        created_at: datetime
+        resolved_at: Optional[datetime] = None
+
+    # [LSP textDocument/hover type] src\models.py:54
+    class SLAEvaluation:
+        """Resultado determinista de la evaluación de SLA de un incidente."""
+
+        incident_id: str
+        severity: SeverityLevel
+        elapsed_minutes: int
+        allowed_minutes: int
+        remaining_minutes: int
+        is_breached: bool
+        requires_escalation: bool
+
+    # [LSP textDocument/hover type] src\models.py:67
+    class TriageResult:
+        """Resultado estructurado producido por el clasificador de triaje.
+
+        `duplicate_group_key` sigue el formato `<component>:<symptom_category>`; dos
+        incidentes con la misma clave se consideran candidatos a duplicado.
+        """
+
+        incident_id: str
+        severity: SeverityLevel
+        component: str
+        rationale: str
+        recommended_team: TeamName
+        duplicate_group_key: str
+        symptom_category: SymptomCategory = "other"
+        impact_scope: ImpactScope = "global"
+        consistency_ratio: float = 1.0
+
+    # [LSP textDocument/hover symbol] src\sla_calculator.py:17
+    SLA_POLICY_TABLE: Dict[SeverityLevel, SLARule] = {
+        "P0": SLARule(severity="P0", max_resolution_minutes=60, operates_24x7=True),
+        "P1": SLARule(severity="P1", max_resolution_minutes=240, operates_24x7=True),
+        "P2": SLARule(severity="P2", max_resolution_minutes=480, operates_24x7=False),
+        "P3": SLARule(severity="P3", max_resolution_minutes=1440, operates_24x7=False),
+    }
+
+    <!-- 2. Definición Exacta del Símbolo (LSP GoToDefinition) -->
+    # [LSP textDocument/definition] src\sla_calculator.py:25
+    def get_sla_rule_for_severity(severity: SeverityLevel) -> SLARule:
+        """Obtiene la regla de SLA aplicable a una severidad validada contra la tabla."""
+        if severity not in SLA_POLICY_TABLE:
+            raise ValueError(f"Severidad no válida: {severity}")
+        return SLA_POLICY_TABLE[severity]
+
+    # [LSP textDocument/definition] src\sla_calculator.py:32
+    def evaluate_sla_status(incident: Incident, reference_time: datetime) -> SLAEvaluation:
+        """Evalúa si un incidente ha incumplido su SLA o requiere escalamiento preventivo.
+
+        Args:
+            incident: Entidad del incidente a evaluar.
+            reference_time: Marca de tiempo actual o de cierre contra la cual medir.
+
+        Returns:
+            SLAEvaluation con los minutos transcurridos, restantes y banderas de estado.
+        """
+        rule = get_sla_rule_for_severity(incident.severity)
+        end_time = incident.resolved_at or reference_time
+
+        if end_time < incident.created_at:
+            raise ValueError("El tiempo de referencia no puede ser anterior a la creación.")
+
+        # TODO(week-1-taller): Cuando rule.operates_24x7 es False (P2 y P3), solo deben
+        # contabilizarse los minutos dentro del horario hábil (Lunes-Viernes 08:00-18:00).
+        delta_seconds = (end_time - incident.created_at).total_seconds()
+        elapsed_minutes = int(delta_seconds // 60)
+
+        remaining_minutes = rule.max_resolution_minutes - elapsed_minutes
+        is_breached = elapsed_minutes > rule.max_resolution_minutes
+
+        escalation_limit = int(rule.max_resolution_minutes * rule.escalation_threshold_ratio)
+        requires_escalation = (
+            incident.status != "RESOLVED"
+            and not is_breached
+            and elapsed_minutes >= escalation_limit
+        )
+
+        return SLAEvaluation(
+            incident_id=incident.incident_id,
+            severity=incident.severity,
+            elapsed_minutes=elapsed_minutes,
+            allowed_minutes=rule.max_resolution_minutes,
+            remaining_minutes=remaining_minutes,
+            is_breached=is_breached,
+            requires_escalation=requires_escalation,
+        )
+
+    <!-- 3. Referencias de Invocación en el Proyecto (LSP FindReferences) -->
+    # [LSP textDocument/references] src\incident_repository.py:146
+    L145:             )
+    L146:             sla_eval = evaluate_sla_status(incident, reference_time=reference_time)
+    L147:             results.append(
+
+    # [LSP textDocument/references] src\sla_calculator.py:87
+    L86:     monday_morning = datetime(2026, 11, 9, 9, 0, 0)
+    L87:     evaluation = evaluate_sla_status(sample_incident, reference_time=monday_morning)
+    L88: 
+    </lsp_context>
+
+    -----------------------------------
+
+    # ADR-000: [Título Corto de la Decisión Arquitectónica]
+
+    - **Estado**: Propuesto | Aceptado | Reemplazado
+    - **Fecha**: YYYY-MM-DD
+    - **Autor(es)**: [Nombre del Ingeniero / Equipo]
+    - **Componentes Afectados**: [`src/...`]
+
+    ---
+
+    ## 1. Contexto y Problema
+
+    Describe el problema técnico o de negocio actual, las limitaciones del código existente (por ejemplo, latencia, consultas N+1, errores de cálculo de SLA o limitaciones de escalabilidad) y las restricciones del sistema (p. ej., mantener cero dependencias externas, seguridad contra inyección SQL, determinismo).
+
+    ---
+
+    ## 2. Opciones Consideradas
+
+    1. **Opción A — [Nombre de la opción]**:
+    - *Ventajas*: ...
+    - *Desventajas*: ...
+    2. **Opción B — [Nombre de la opción]**:
+    - *Ventajas*: ...
+    - *Desventajas*: ...
+    3. **Opción C — [Nombre de la opción]**:
+    - *Ventajas*: ...
+    - *Desventajas*: ...
+
+    ---
+
+    ## 3. Decisión Arquitectónica
+
+    Explica claramente cuál opción fue elegida y **por qué**. Incluye un diagrama **Mermaid** (`flowchart TD`, `flowchart LR`, `sequenceDiagram` o `stateDiagram-v2`) que ilustre el diseño aprobado.
+
+    ```mermaid
+    flowchart LR
+        A["Solicitud / Evento"] --> B["Componente Refactorizado"]
+        B --> C["Resultado Validado"]
+    ```
+
+    ---
+
+    ## 4. Consecuencias e Impacto
+
+    - **Positivas**: Mejoras en rendimiento, mantenibilidad, precisión o consumo de recursos.
+    - **Negativas / Trade-offs**: Complejidad adicional asumida o límites conocidos de la solución.
+    - **Verificación**: Cómo se comprobará empíricamente que la implementación cumple esta decisión.
+
+    </context>
+    <decision_summary>
+    **Opciones descartadas**
+    - Mantener minutos de pared para P2 y P3. Es la causa de los falsos vencidos en fines de semana.
+    - Una regla especial de "mover el inicio al próximo día hábil". Contar solo la intersección con las ventanas hábiles ya lo resuelve.
+    - Modelar "en espera de fin de semana" como estado almacenado. Se deriva del tiempo.
+    - Mantener `not is_breached` en la escalación, o separar dos flags. Se descarta porque los vencidos abiertos también deben escalar.
+    - Seguir midiendo hasta `reference_time` cuando está `RESOLVED` sin `resolved_at`.
+
+    **Decisión final**
+    - P0 y P1 miden minutos de pared. P2 y P3 miden minutos hábiles (lunes a viernes, 08:00–18:00) con una función auxiliar pura, O(D), día a día, que suma el solape con cada ventana.
+    - `requires_escalation` es verdadera si el incidente no está `RESOLVED` y `elapsed >= escalation_limit`.
+    - Todo `RESOLVED` lleva `resolved_at`, y eso detiene el reloj.
+
+    **Restricciones técnicas**
+    - Solo librería estándar (`datetime` y `timedelta`).
+    - Datetimes naive en hora local de operación, sin zonas horarias.
+    - Sumar segundos y truncar a minutos una sola vez al final.
+    - La invariante de `resolved_at` la debe garantizar quien cambia el estado, no el calculador.
+    - Pendiente de decidir:
+    - La evaluación histórica (propongo `min(resolved_at, reference_time)`).
+    - Si se rechaza un `tzinfo` presente.
+    - Cómo maneja el repositorio los datos inválidos.
+    </decision_summary>
+    <constraints>
+    - La solución solo debe incluir las librerías mencionadas en el resumen de decisión. No incluyas o sugieras otras.
+    - El horario hábil debe estar estrictamente definido como lunes a viernes de 08:00 a 18:00, con un máximo de 600 minutos hábiles por día. Los sábados y domingos no descuentan tiempo de SLAs.
+    - El documento ADR debe ser puramente markdown incluyendo un bloque de código Mermaid validado para la renderización del diagrama.
+    - El documento debe mantener un tono de ingeniería profesional, objetivo y conciso. 
+    </constraints>
+    <task>
+    Redacta el documento `docs/adr/002-calculo-sla-horario-habil.md` siguiendo las secciones de la plantilla e incluye un diagrama Mermaid (flowchart TD o stateDiagram-v2) que explique el cálculo y la transición a escalamiento.
+    </task>
 ```
 
 ---
