@@ -199,6 +199,12 @@ Refactoriza los archivos src/triage_rules.py y src/models.py, tomando como refer
 </task> 
 ```
 
+*Resultado en terminal*
+
+Auditoría del motor de Triaje (Actualizada)
+
+![Auditoría del motor de Triaje (Actualizada)](img\paso1-4.png)
+
 ---
 
 ## 2. Flujo Explorar $\rightarrow$ Destilar $\rightarrow$ Ejecutar en Contexto Limpio (Reto 2: Cálculo de SLA en Horario Hábil y ADR-002)
@@ -206,7 +212,45 @@ Refactoriza los archivos src/triage_rules.py y src/models.py, tomando como refer
 ### 2.1 Exploración de Diseño (Sin Generar Código Aún) y Destilación
 - **Objetivo explorado**: Diseño del algoritmo de cálculo de SLA en horario hábil (`P2`/`P3`, Lunes–Viernes 08:00–18:00) vs. 24/7 (`P0`/`P1`) y regla de escalamiento preventivo al 75%.
 - **Síntesis de tu exploración de alternativas y resumen destilado (máx. 10 líneas)**:
-  > `[Describe qué dudas e hipótesis iniciales exploraste, qué casos borde descubriste junto con el modelo (creación en fin de semana, fuera de horario, cruces de varios días) y pega el bloque destilado que llevaste al nuevo chat limpio]`
+
+El prompt utilizado fue:
+  > `<lsp_context>...</lsp_context> Estoy revisando la función `evaluate_sla_status` en `sla_calculator.py` que evalúa si un incidente ha incumplido su SLA o requiere escalamiento. Estoy notando que el modelo esta omitiendo casos borde críticos, como los tickets que se crean los fines de semana, los que se crean un viernes a las 18:30 y quedan fuera de ventana, o los tickets donde requieres_escalation se apaga erróneamente cuando se vence el SLA. No escribas código todavía: analicemos los casos borde, en torno a ¿Qué pasa si un incidente se crea el viernes fuera de horario y se evalúa el lunes a las 8:30?, ¿Qué pasa si se crea un sábado o se cruza múltiples fines de semana?, ¿Cómo se podría mantener el algoritmo simple, legible y O(D), donde la D es el número de días entre la creación y la evaluación, sin librerías externas pesadas?, ¿Cuáles son los SLAs definidos para los incidentes y que está causando que la escalación se apague?, ¿Cómo se están respondiendo a los casos que quedan en espera en el fin de semana (se encolan, se asigan, se escalan, ...)? `
+  
+Las dudas que explore fueron:
+- Comportamiento de los tickets que llegaban fuera de horarios (por jemeplo, en los fines de semana).
+- Comportamiento de los cruces de fines de semana. Acá es importante aclarar que el asistente ayudó a identificar, como que en los tickets que eran marcados como resueltos, seguía corriendo su reloj de resolución.
+- Cómo mantener el algoritmo simple, donde el asistente sugirió crear una función auxiliar para calcular los minutos (dentro de la franaj laboral) que son los que debería mirar `evaluate_sla_stauts`. 
+- También se consultó sobre el problema con los SLAs, que hacian que la escalación se apagara. Frente a esto se encontró que la condición de escalación era una ventana cerrada y no un umbral. Esto significa que casos como que un ticket estuviera abierto, pero su SLA se hubiera vencido, quedan por fuera del rango. Así mismo, la principal hipotésis fue que la bandera de escalamiento preventivo estaba omitiendo estos casos de tickets vencidos pero pendientes. 
+
+Adicional a estos escenarios borde, se encontraron estos adicionales:
+- Hay un problema en la evaluación historia, porque si `resolved_at` es posterior a `reference_time`, se ignora el último.
+- Hay datetime con zona y otros si zona, por lo que las comparaciones podrían saltar error de tipo. 
+
+Aceptando algunas sugerencias y descartando otras, se obtuvo el siguiente bloque destilado:
+
+```xml
+**Opciones descartadas**
+    - Mantener minutos de pared para P2 y P3. Es la causa de los falsos vencidos en fines de semana.
+    - Una regla especial de "mover el inicio al próximo día hábil". Contar solo la intersección con las ventanas hábiles ya lo resuelve.
+    - Modelar "en espera de fin de semana" como estado almacenado. Se deriva del tiempo.
+    - Mantener `not is_breached` en la escalación, o separar dos flags. Se descarta porque los vencidos abiertos también deben escalar.
+    - Seguir midiendo hasta `reference_time` cuando está `RESOLVED` sin `resolved_at`.
+
+**Decisión final**
+    - P0 y P1 miden minutos de pared. P2 y P3 miden minutos hábiles (lunes a viernes, 08:00–18:00) con una función auxiliar pura, O(D), día a día, que suma el solape con cada ventana.
+    - `requires_escalation` es verdadera si el incidente no está `RESOLVED` y `elapsed >= escalation_limit`.
+    - Todo `RESOLVED` lleva `resolved_at`, y eso detiene el reloj.
+
+**Restricciones técnicas**
+    - Solo librería estándar (`datetime` y `timedelta`).
+    - Datetimes naive en hora local de operación, sin zonas horarias.
+    - Sumar segundos y truncar a minutos una sola vez al final.
+    - La invariante de `resolved_at` la debe garantizar quien cambia el estado, no el calculador.
+    - Pendiente de decidir:
+    - La evaluación histórica (propongo `min(resolved_at, reference_time)`).
+    - Si se rechaza un `tzinfo` presente.
+    - Cómo maneja el repositorio los datos inválidos.
+```
 
 ### 2.2 Ejecución con Contexto Curado en Nuevo Chat Limpio (*Context Engineering*)
 Copia el prompt estructurado con etiquetas XML que utilizaste en un nuevo chat limpio para generar el **ADR (`docs/adr/002-calculo-sla-horario-habil.md`)** y la refactorización de `src/sla_calculator.py`:
