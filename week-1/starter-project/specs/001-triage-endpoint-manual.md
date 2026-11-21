@@ -1,10 +1,23 @@
 # Especificación 001 — Endpoint de triaje HTTP y CLI (H001)
 
-- **Estado**: Aprobada para implementación
+- **Estado**: Aprobada para implementación (con enmienda, ver abajo)
 - **Fecha**: 2026-11-21
 - **Hito**: H001 — Triaje multi-interfaz
 - **Ámbito**: `week-1/starter-project/`
 - **Referencias**: `docs/constitution.md`, `docs/adr/003-arquitectura-hexagonal.md`, `docs/ROADMAP.md`
+
+> **Enmienda (2026-11-21):** se adelanta a este corte de H001 la migración del
+> motor de triaje/SLA a `src/domain/` (originalmente prevista para un hito
+> posterior bajo la cláusula transitoria 3.5), y se ajustan en consecuencia
+> las rutas de archivo de §2, §3 y §11. Además, esta implementación simplifica
+> el contrato de errores a un envelope plano `{"error": "<mensaje>"}` (sin la
+> taxonomía de códigos `EMPTY_FIELD`/`FIELD_TOO_LONG`/`VALIDATION_ERROR` de la
+> versión original de §4.3/§6/§9) y no incorpora Ruff ni cambios a
+> `docs/ROADMAP.md` en este cut. Decisión del equipo tras revisar este primer
+> corte; sustituye las rutas de archivo, el contrato de errores y el alcance
+> de pruebas estáticas de la versión original de este documento. Los
+> escenarios BDD, el contrato de severidad/equipo/componente y las reglas de
+> dominio (§7) no cambian.
 
 ## 1. Objetivo
 
@@ -15,19 +28,18 @@ Exponer el motor determinista de triaje como servicio HTTP para el frontend y co
 - Operación **stateless**: no se guardan reportes, resultados ni historial.
 - Sin puertos de salida ni repositorio en H001.
 - Sin procesamiento por lote, sin autenticación y sin adaptador MCP.
-- El motor de triaje **no se mueve**: `src/triage_rules.py` y `src/models.py` permanecen en su ubicación actual. La capa de aplicación los importa; no se reimplementan reglas.
-- Se actualiza `docs/ROADMAP.md` para que H001 refleje este contrato.
+- El motor de triaje **se migra** a `src/domain/` (`models.py`, `triage_rules.py`, `sla_calculator.py`) como parte de este corte (ver enmienda). La capa de aplicación los importa; no se reimplementan reglas.
+- `docs/ROADMAP.md` no se modifica en este corte (fuera de alcance de esta implementación).
 
 ## 3. Arquitectura
 
 Dirección de dependencias: adaptadores → aplicación → dominio/motor.
 
-- `src/application/ports.py`: puerto de entrada `TriageUseCase` con `typing.Protocol`.
-- `src/application/incident_service.py`: `IncidentService.triage_incident(incident_id: str, raw_text: str) -> TriageResult`. Recibe datos ya validados y delega en `classify_incident_report`.
-- `src/adapters/inbound/schemas.py`: esquema Pydantic v2 compartido por HTTP y CLI.
-- `src/adapters/inbound/http.py`: aplicación FastAPI (`app`).
+- `src/domain/models.py`, `src/domain/triage_rules.py`, `src/domain/sla_calculator.py`: núcleo puro migrado en este corte.
+- `src/application/services.py`: `ValidationError` y `IncidentService.triage_incident(incident_id: str, raw_text: str) -> TriageResult`. Valida la forma de la solicitud (campos no vacíos, longitud máxima) y delega en `classify_incident_report`.
+- `src/adapters/inbound/api/schemas.py`: esquemas Pydantic v2 de entrada/salida del adaptador REST.
+- `src/adapters/inbound/api/app.py`: aplicación FastAPI, expuesta como `create_app()` y como `app` a nivel de módulo.
 - `src/adapters/inbound/cli.py`: aplicación Typer (`app`) con el subcomando `triage`.
-- `src/domain/` no se introduce en H001; la cláusula transitoria 3.5 de la Constitución ampara el uso del motor actual desde la aplicación.
 
 ## 4. Contrato HTTP
 
@@ -46,7 +58,7 @@ Content-Type: application/json
 ```
 
 - Ambos campos son obligatorios y de tipo `string`.
-- Campos desconocidos se rechazan (`extra="forbid"`).
+- Campos desconocidos **no** se rechazan en este corte (`TriageRequestSchema` no fija `extra="forbid"`; ver §9).
 
 ### 4.2 Respuesta exitosa
 
@@ -72,29 +84,29 @@ Content-Type: application/json
 
 ### 4.3 Errores
 
-Formato único:
+Formato único, plano (sin taxonomía de códigos en este corte — ver enmienda):
 
 ```json
 {
-  "error": {
-    "code": "EMPTY_FIELD",
-    "message": "raw_text no puede estar vacío"
-  }
+  "error": "raw_text no puede estar vacío."
 }
 ```
 
-| Código | HTTP | Causa |
-|---|---|---|
-| `EMPTY_FIELD` | `422` | Campo vacío o solo espacios tras `.strip()` |
-| `FIELD_TOO_LONG` | `422` | `raw_text` > 4000 o `incident_id` > 100 |
-| `VALIDATION_ERROR` | `422` | Campo faltante, tipo incorrecto o campo extra |
-| `INTERNAL_ERROR` | `500` | Fallo inesperado |
+| HTTP | Causa |
+|---|---|
+| `422` | Campo vacío (o solo espacios) tras `.strip()`, o fuera de longitud máxima (`incident_id` > 100, `raw_text` > 4000) |
+| `500` | Fallo inesperado |
+
+> Campo faltante o de tipo incorrecto en el JSON también responde `422`, pero
+> con el cuerpo nativo de FastAPI/Pydantic (`{"detail": [...]}`), no con el
+> envelope `{"error": "..."}` anterior — esa validación ocurre antes de llegar
+> a `IncidentService` y no pasa por `ValidationError`.
 
 ### 4.4 Operación
 
 - Sin autenticación en H001 (servicio interno).
-- CORS configurable por `INCIDENTOPS_CORS_ORIGINS` (lista separada por comas); valor por defecto `*` en H001.
-- OpenAPI y Swagger expuestos en `/openapi.json` y `/docs`.
+- Sin configuración de CORS en este corte (ver enmienda); pendiente si el servicio se expone fuera del entorno controlado.
+- OpenAPI y Swagger expuestos en `/openapi.json` y `/docs` (comportamiento por defecto de FastAPI).
 
 ## 5. Contrato CLI
 
@@ -102,40 +114,31 @@ Formato único:
 uv run python -m src.adapters.inbound.cli triage --incident-id INC-1001 --raw-text "..."
 ```
 
+> La CLI expone `triage` como subcomando explícito (`typer.Typer()` con un
+> `@app.callback()` de aplicación, para evitar que Typer colapse el único
+> comando y omita el nombre del subcomando).
+
 - Solo se admiten `--incident-id` y `--raw-text`; no hay lectura por stdin ni `--file` en H001.
 - Éxito: JSON compacto UTF-8 (`ensure_ascii=False`) del mismo objeto de respuesta HTTP por `stdout`; código de salida `0`.
 - Entrada vacía o solo espacios: JSON de error por `stderr`; código de salida `1`.
 - Error de validación de tipo o longitud: JSON de error por `stderr`; código de salida `1`.
 - Opción requerida ausente: se conserva el código `2` nativo de Typer/Click.
-- La CLI usa el mismo `TriageRequest` y el mismo `IncidentService` que HTTP.
+- La CLI invoca directamente el mismo `IncidentService.triage_incident` que usa el adaptador HTTP (sin pasar por `TriageRequestSchema`, que es específico del adaptador REST).
 
 ## 6. Validación
 
-La validación tiene dos capas complementarias; un linter estático **no** puede validar payloads en runtime.
+En este corte, la validación de forma de la solicitud vive en un único lugar
+—`IncidentService.triage_incident` (`src/application/services.py`)— y la
+comparten HTTP y CLI; no hay una capa Pydantic de validación de campos propia
+del payload con códigos de error (ver enmienda).
 
-### 6.1 Runtime — Pydantic v2
-
-`TriageRequest` en `src/adapters/inbound/schemas.py`:
-
-- `incident_id`: `str`, `.strip()` no vacío, máximo 100; se conserva recortado.
-- `raw_text`: `str`, `.strip()` no vacío, máximo 4000; se conserva **original** para clasificar.
-- `extra="forbid"`.
-- Errores emitidos con `PydanticCustomError`: `empty_field`, `field_too_long`, `validation_error`.
-- HTTP traduce estos errores al envelope del punto 4.3; CLI los traduce a JSON de error con exit `1`.
-
-`IncidentService` no repite validaciones: recibe valores ya validados. El dominio no conoce Pydantic.
-
-### 6.2 Estática — Ruff
-
-- Dependencia de desarrollo `ruff`.
-- Configuración en `pyproject.toml`: `target-version = "py310"`, `line-length = 100`, reglas `E`, `F`, `I`, `UP`, `B`.
-- Se aplica al código nuevo (`src/application/`, `src/adapters/`, `tests/`); no se reformatean los módulos existentes.
-- Comandos:
-
-```powershell
-uv run ruff check src/application src/adapters tests
-uv run ruff format --check src/application src/adapters tests
-```
+- `incident_id`: no vacío tras `.strip()`, máximo 100 caracteres; se usa recortado.
+- `raw_text`: no vacío tras `.strip()`, máximo 4000 caracteres; se usa **original** para clasificar.
+- Cualquier violación lanza `ValidationError` (excepción de aplicación, no de Pydantic).
+- HTTP traduce `ValidationError` al envelope plano del punto 4.3 (`422`); CLI la traduce a JSON de error por `stderr` con exit `1`.
+- `src/adapters/inbound/api/schemas.py` sí usa Pydantic v2, pero solo para la forma del request/response HTTP (tipos de campo); no define reglas de longitud ni mensajes de error propios.
+- El dominio no conoce Pydantic ni Typer.
+- Ruff y su configuración en `pyproject.toml` **no se incorporan en este corte** (no estaban en el alcance pedido); queda como trabajo pendiente para un corte posterior.
 
 ## 7. Reglas de dominio aplicables
 
@@ -162,8 +165,9 @@ And duplicate_group_key es "payments-gateway:outage"
 ```
 
 > El valor se mantiene como `payments-gateway:outage` porque el contrato del
-> motor es `<component>:<symptom_category>` (Constitución 1.8) y el motor no se
-> mueve ni se modifica en H001. El valor `payments-gateway:http-502-outage`
+> motor es `<component>:<symptom_category>` (Constitución 1.8); la migración
+> de `src/triage_rules.py` a `src/domain/triage_rules.py` en este corte reubica
+> el módulo pero no modifica sus reglas. El valor `payments-gateway:http-502-outage`
 > queda descartado: exigiría cambiar la regla de dominio (ADR) o mapear la
 > salida en el adaptador, prohibido por la Constitución 1.1/2.5.
 
@@ -185,7 +189,7 @@ And severity no es "P0" (la palabra "hoy" no produce falso positivo)
 Given una solicitud con raw_text " " o con incident_id ""
 When se envía POST /api/v1/incidents/triage
 Then la respuesta es 422 Unprocessable Entity
-And el cuerpo contiene error.code "EMPTY_FIELD"
+And el cuerpo contiene una clave "error" con un mensaje descriptivo
 ```
 
 ### Escenario 4: Paridad en CLI
@@ -208,17 +212,19 @@ And el código de salida es 0
 | Certificado en staging | `INC-1010` | `P3`, `Platform-SRE` |
 | Latencia con alcance global | `INC-1003` | `P2` |
 | Solo palabras de urgencia | `raw_text` con "urgente"/"hoy" sin síntoma | No eleva la severidad |
-| `raw_text` vacío | `""` | `422 EMPTY_FIELD` |
-| `raw_text` solo espacios | `"   "` | `422 EMPTY_FIELD` |
-| `incident_id` vacío | `""` | `422 EMPTY_FIELD` |
-| `incident_id` solo espacios | `"   "` | `422 EMPTY_FIELD` |
-| `raw_text` > 4000 | Texto largo | `422 FIELD_TOO_LONG` |
-| `incident_id` > 100 | Texto largo | `422 FIELD_TOO_LONG` |
-| Campo faltante | Sin `raw_text` | `422 VALIDATION_ERROR` |
-| Tipo incorrecto | `raw_text: 123` | `422 VALIDATION_ERROR` |
-| Campo extra | `{"foo": "bar"}` | `422 VALIDATION_ERROR` |
+| `raw_text` vacío | `""` | `422`, `{"error": "..."}` |
+| `raw_text` solo espacios | `"   "` | `422`, `{"error": "..."}` |
+| `incident_id` vacío | `""` | `422`, `{"error": "..."}` |
+| `incident_id` solo espacios | `"   "` | `422`, `{"error": "..."}` |
+| `raw_text` > 4000 | Texto largo | `422`, `{"error": "..."}` |
+| `incident_id` > 100 | Texto largo | `422`, `{"error": "..."}` |
+| Campo faltante | Sin `raw_text` | `422` (error de validación de Pydantic, forma del payload) |
+| Tipo incorrecto | `raw_text: 123` | `422` (error de validación de Pydantic, forma del payload) |
 | Repetición idéntica | Dos solicitudes iguales | Misma respuesta; sin estado persistido |
 | CLI con `raw_text` vacío | `--raw-text ""` | Error JSON en stderr; exit `1` |
+
+> Nota: el rechazo de campos extra (`extra="forbid"`) no se implementó en este
+> corte; `TriageRequestSchema` solo fija los tipos de `incident_id`/`raw_text`.
 
 ## 10. Pruebas y verificación
 
@@ -226,15 +232,13 @@ Pruebas de aceptación con `pytest`, escenarios `Given/When/Then` en docstrings 
 
 ```powershell
 uv sync
-uv run ruff check src/application src/adapters tests
-uv run ruff format --check src/application src/adapters tests
 uv run pytest -q
 ```
 
 Ejecución manual:
 
 ```powershell
-uv run uvicorn src.adapters.inbound.http:app --reload
+uv run uvicorn src.adapters.inbound.api.app:app --reload
 uv run python -m src.adapters.inbound.cli triage --incident-id INC-1001 --raw-text "..."
 ```
 
@@ -242,33 +246,36 @@ uv run python -m src.adapters.inbound.cli triage --incident-id INC-1001 --raw-te
 
 Crear:
 
-- `src/application/__init__.py`
-- `src/application/ports.py`
-- `src/application/incident_service.py`
-- `src/adapters/__init__.py`
-- `src/adapters/inbound/__init__.py`
-- `src/adapters/inbound/schemas.py`
-- `src/adapters/inbound/http.py`
+- `src/domain/__init__.py`, `src/domain/models.py`, `src/domain/triage_rules.py`, `src/domain/sla_calculator.py`
+- `src/application/__init__.py`, `src/application/services.py`
+- `src/adapters/__init__.py`, `src/adapters/inbound/__init__.py`, `src/adapters/inbound/api/__init__.py`
+- `src/adapters/inbound/api/schemas.py`, `src/adapters/inbound/api/app.py`
 - `src/adapters/inbound/cli.py`
-- `tests/acceptance/test_h001_http.py`
-- `tests/acceptance/test_h001_cli.py`
+- `tests/conftest.py`, `tests/test_spec_001_triage.py`
 
 Modificar:
 
-- `pyproject.toml`: `fastapi`, `uvicorn`, `pydantic`, `typer`; dev `pytest`, `httpx`, `ruff`; configuración de pytest y ruff.
-- `docs/ROADMAP.md`: H001 con REST + CLI stateless y referencia a esta especificación.
-- `AGENTS.md`: comandos nuevos y corrección de la nota sobre FastAPI/pytest.
+- `pyproject.toml`: `fastapi`, `uvicorn`, `pydantic`, `typer`; dev `pytest`, `httpx`; configuración de pytest.
+- `src/incident_repository.py`: imports actualizados a `src.domain.models` / `src.domain.sla_calculator` (corrige además un import roto preexistente).
+- `AGENTS.md`: nueva estructura hexagonal, comandos nuevos y corrección de la nota sobre pytest.
+- Esta especificación (enmienda registrada arriba).
+
+Eliminar:
+
+- `src/models.py` (migrado a `src/domain/models.py`, sin shim de compatibilidad).
 
 No modificar:
 
-- `src/triage_rules.py`
-- `src/models.py`
-- `src/sla_calculator.py`
-- `src/incident_repository.py`
+- `src/context_audit.py`
+
+No realizado en este corte (fuera de alcance pedido):
+
+- `docs/ROADMAP.md`
+- Ruff (dependencia y configuración)
 
 ## 12. Supuestos y puntos abiertos
 
-1. **`duplicate_group_key` del Escenario 1**: resuelto a `payments-gateway:outage`, conforme a la Constitución 1.8 y a la decisión de no mover el motor.
-2. **Exit `2` de Typer** para opciones requeridas ausentes: se mantiene el comportamiento nativo; no se fuerza a `1`.
-3. **Alcance de Ruff**: solo código nuevo, para no introducir cambios ajenos en los módulos existentes.
-4. **CORS por defecto `*`**: aceptable para H001 interno; debe restringirse antes de exponer el servicio fuera del entorno controlado.
+1. **`duplicate_group_key` del Escenario 1**: resuelto a `payments-gateway:outage`, conforme a la Constitución 1.8; no cambia por la migración a `src/domain/`, que solo reubica el motor sin tocar sus reglas.
+2. **Exit `2` de Typer** para opciones requeridas ausentes: se mantiene el comportamiento nativo; no se fuerza a `1`. (Para que `triage` exista como subcomando explícito en vez de colapsarse al único comando, el `Typer()` del CLI registra un `@app.callback()` de aplicación; ver §5.)
+3. **Ruff y taxonomía de códigos de error**: no implementados en este corte (ver enmienda); quedan como trabajo pendiente para un hito posterior si se requiere paridad total con la especificación original.
+4. **CORS por defecto `*`**: no implementado en este corte (no hay configuración CORS); si se expone el servicio fuera del entorno controlado, debe añadirse antes.

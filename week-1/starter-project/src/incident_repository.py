@@ -15,8 +15,8 @@ import sqlite3
 import time
 from typing import Any, Dict, List
 
-from src.models import Incident, SeverityLevel
-from src.sla_calculator import SLA_POLICY_TABLE, evaluate_sla_status
+from src.domain.models import Incident, SeverityLevel
+from src.domain.sla_calculator import SLA_POLICY_TABLE, evaluate_sla_status
 
 # Estados considerados activos (constante interna fija; ver ADR-001).
 _ACTIVE_STATUSES = ("OPEN", "IN_PROGRESS")
