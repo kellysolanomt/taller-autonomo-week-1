@@ -4,9 +4,10 @@ Hoja de ruta de producto y operaciones. Los hitos se presentan en orden de evolu
 
 ## H001 — Triaje multi-interfaz
 
-- **Objetivo:** Exponer la clasificación y el enrutamiento determinista de reportes, sin persistencia, para consumo inmediato desde web y terminal.
-- **Resultados esperados:** Un reporte entrante obtiene la misma clasificación y destino sin importar la interfaz; el resultado está disponible al instante y no deja estado almacenado.
-- **Fuera de alcance:** Guardar los reportes o sus resultados, historial de clasificaciones, edición manual de reglas y contratos o rutas de interfaz aún no definidos.
+- **Objetivo:** Exponer la clasificación y el enrutamiento determinista de reportes como servicio HTTP y comando CLI, sin persistencia, para consumo inmediato desde web y terminal.
+- **Resultados esperados:** Un reporte entrante obtiene la misma clasificación y destino sin importar la interfaz; `POST /api/v1/incidents/triage` y el comando `triage --incident-id ... --raw-text ...` comparten el mismo caso de uso; el resultado está disponible al instante y no deja estado almacenado.
+- **Especificación:** `specs/001-triage-endpoint-manual.md`.
+- **Fuera de alcance:** Guardar los reportes o sus resultados, historial de clasificaciones, edición manual de reglas, autenticación, procesamiento por lote y adaptador MCP.
 
 ## H002 — Resumen de incidentes activos
 
