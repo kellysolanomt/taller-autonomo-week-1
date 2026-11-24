@@ -10,8 +10,8 @@
 
 
 *Evidencias*
-![Prompt enviado 1](img\entrega2\paso1-1.png)
-![Prompt enviado 2](img\entrega2\paso1-1-1.png)
+![Prompt enviado 1](img/entrega2/paso1-1.png)
+![Prompt enviado 2](img/entrega2/paso1-1-1.png)
 
 
 - **Ambigüedades y casos borde detectados con `/speckit.clarify`**:  Luego de ejecutar `/speckit.clarify` se encontraron los siguientes casos borde:
@@ -55,7 +55,7 @@ El resumen generado por Claude fue:
 ```
 Análisis de H003 (/speckit-analyze): 0 hallazgos CRITICAL, sin violaciones de la Constitución. Cobertura de requisitos: 96% (24/25 FR+SC con al menos una tarea). Todos los campos con restricción de data-model.md quedaron citados correctamente, sin contradicciones. No hay duplicaciones, ambigüedades ni placeholders sin resolver. Se encontraron 5 hallazgos: 1 HIGH — FR-014 (idempotencia/sin efectos de la auditoría de SLA) sin ninguna prueba. 3 MEDIUM — FR-013 cubierto solo a medias (falta probar que evaluate_incident_sla no modifica el incidente); el caso de múltiples duplicados simultáneos nunca se prueba; los estados IN_PROGRESS/ESCALATION_REQUIRED como duplicado abierto tampoco se prueban (solo OPEN). 1 LOW — T013 depende de una tarea numerada después (T025), ordenamiento documentado pero atípico. Ninguno bloquea /speckit-implement; son brechas de pruebas, no de diseño.
 ```
-![Pruebas](img\entrega2\paso1-3.png)
+![Pruebas](img/entrega2/paso1-3.png)
 
 ### 1.2 Feature `004-postgres-container-runtime` 
 - **Ambigüedades y RNF aclarados antes de diseñar PostgreSQL/Compose**: Al definir los requeirmientos funcionales para la parte de PostgreSQL, no se encontraron ambigüedades que fueran bloqueantes, dado que todas tenian valores por defecto razonales y que fueron considerados por el modelo como de "bajo riesgo". No obstante, los siguientes items se marcaron como supuesto:
@@ -146,7 +146,7 @@ Los comando en lo que se requieren tareas de exploración, análisis y propuesta
 PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project> uv run ruff check src/ 
 All checks passed!
 ``` 
-![Evidencia 1](img\entrega2\final-1.png)
+![Evidencia 1](img/entrega2/final-1.png)
 
 - **Salida completa de `uv run pytest -v`**: 
 ```text 
@@ -200,7 +200,7 @@ tests/test_spec_004_runtime_health.py::test_docker_compose_declara_api_y_db_con_
 ======================================== 30 passed, 1 warning in 0.22s =========================================
 ``` 
 
-![Evidencia 2](img\entrega2\final-2.png)
+![Evidencia 2](img/entrega2/final-2.png)
 
 
 ```
@@ -208,7 +208,7 @@ PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-
 {"status": "ok", "database": "connected"}
 ```
 
-![Evidencia 3](img\entrega2\final-3.png)
+![Evidencia 3](img/entrega2/final-3.png)
 
 - **Evidencia de CLI Typer y containerización (`docker compose config` / `docker compose 
 up --build`)**: 
@@ -480,4 +480,4 @@ api-1  | INFO:     127.0.0.1:35042 - "GET /health HTTP/1.1" 200 OK
 api-1  | INFO:     127.0.0.1:35056 - "GET /health HTTP/1.1" 200 OK
 ```
 
-![Evidencia 4](img\entrega2\final-4.png)
+![Evidencia 4](img/entrega2/final-4.png)
