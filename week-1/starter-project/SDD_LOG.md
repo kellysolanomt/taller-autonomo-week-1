@@ -91,10 +91,10 @@ Estas tareas eran las de la falta de verificación de paridad cruzda y el que no
 
 | Dimensión Comparada | SDD Manual (Iteración 1: `001`) | GitHub Spec Kit (Iteración 2 y Retos: `002`–`004`) | 
 | :--- | :--- | :--- | 
-| **Separación *QUÉ* vs. *CÓMO* vs. *TAREAS*** |/sp | | 
-| **Gestión de ambigüedades (`/speckit.clarify`)** | | | 
-| **Consistencia contra la Constitución (`/speckit.analyze`)** | | | 
-| **Riesgo de verbosidad / exceso de Markdown** | | | 
+| **Separación *QUÉ* vs. *CÓMO* vs. *TAREAS*** | En el SDD no hubo una separación concreta a cada pregunta, porque todo va en un documento que mezcla el qué (dentro de un contrato, una definición de la solicitud y un formato de SLA) y el cómo bajo una sección de arquitectura. A nivel de tareas, se definen a través de un alcance, que no específica, por ejemplo las tecnologías que se van a usar. Algo que sucedió con este tipo de enfoque, fue que las correcciones o enmiendas no quedaron directamente definidas dentro del mismo archivo de arquitectura, sino fue necesario crear un archivo de especficación. | Usando esta estrategia, se tuvo una separación estructural, por lo que cada decisión, a nivel de especificaciones, plan y tareas, iba en un archivo aparte, con un formato concreto que podía ser escalable entre las iteraciones. | 
+| **Gestión de ambigüedades (`/speckit.clarify`)** | Las consideraciones encontradas se registraban directamente en la construcción del documento, como revisiones a las decisiones tomadas. No hubo un proceso de clarificación antes del diseño, sino más bien, una modificación a lo implementado. | Cuando se usaba /speckit.clarify se logró construir una sección de Clarificaciones dentro del spec.md, con el razonamiento detras de cada una. Esto fue bueno, porque se lograron encontrar discrepancias que no se habían dejado por escrito dentro del código. | 
+| **Consistencia contra la Constitución (`/speckit.analyze`)** | Los dos documentos que se crearon manualmente (el de constitution.md y el de arquitectura hexagonal) no lograron compararse mutuamente, porque uno se creo después que el otro. Nuevamente pasó lo de las enmiendas, que en un caso donde se quisiera comprobarl el cumplimiento, se tendría que confiar que todas las decisiones estuvieran en él, sin tener en cuenta severidades, o consideraciones relevantes. | Como las constituciones se toman como definiciones estrictas basadas en los documentos de spec, plan y tasks, todo debe cumplirse al ser crítico por definición, y si existieran discrepancia, sería necesario volver a considerar todo el flujo de la decisión. | 
+| **Riesgo de verbosidad / exceso de Markdown** | Se creó un solo documento que mezcla qué, cómo y tareas, La arquitectura se complementó como una enmienda tardía. Las ambigüedades se resuelven después de implementar, sin rastro versionado, y no existe ningún documento no-negociable contra el cual verificarse. Es compacto, pero ese mismo tamaño reducido esconde omisiones que solo aparecen como bugs o parches posteriores. | Separó los documentos spec/plan/tasks con trazabilidad explícita, versionó las ambigüedades resueltas (Clarifications) y trató cualquier choque con la Constitución como CRITICAL automático. El costo es volumen y duplicación entre archivos, pero ese riesgo es gestionable con /speckit-clarify y /speckit-analyze. | 
 
 
 - **Análisis basado en MartinFowler.com (Birgitta Böckeler)**:
@@ -138,13 +138,344 @@ Los comando en lo que se requieren tareas de exploración, análisis y propuesta
 ## 4. Evidencia de Verificación Determinista 
 - **Análisis estático de fronteras hexagonales (`uv run ruff check src/`)**: 
 ```text 
-[Pega aquí la salida de uv run ruff check src/ mostrando All checks passed!] 
+PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project> uv run ruff check src/ 
+All checks passed!
 ``` 
+![Evidencia 1](img\entrega2\final-1.png)
+
 - **Salida completa de `uv run pytest -v`**: 
 ```text 
-[Pega aquí la salida completa de uv run pytest -v con el 100% de las pruebas en PASSED] 
+PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project> uv run pytest -v 
+============================================= test session starts ==============================================
+platform win32 -- Python 3.14.3, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0
+collected 30 items                                                                                              
+
+tests/test_spec_001_triage.py::test_caida_critica_http_502_en_pasarela_de_pagos PASSED                    [  3%]
+tests/test_spec_001_triage.py::test_cuenta_individual_bloqueada_mencionando_hoy PASSED                    [  6%]
+tests/test_spec_001_triage.py::test_entradas_vacias_o_con_solo_espacios PASSED                            [ 10%]
+tests/test_spec_001_triage.py::test_paridad_en_cli PASSED                                                 [ 13%]
+tests/test_spec_002_summary.py::test_bdd_resumen_http_incluye_incumplimientos_y_excluye_resueltos PASSED  [ 16%]
+tests/test_spec_002_summary.py::test_bdd_resumen_http_vacio_sin_incidentes_activos PASSED                 [ 20%]
+tests/test_spec_002_summary.py::test_bdd_incidente_vencido_se_cuenta_como_incumplimiento_http PASSED      [ 23%]
+tests/test_spec_002_summary.py::test_bdd_paridad_resumen_http_cli_mismo_conjunto PASSED                   [ 26%]
+tests/test_spec_002_summary.py::test_bdd_resumen_cli_vacio_sin_incidentes_activos PASSED                  [ 30%]
+tests/test_spec_002_summary.py::test_bdd_filtro_por_componente_limita_resumen PASSED                      [ 33%]
+tests/test_spec_002_summary.py::test_bdd_filtro_componente_sin_incidentes_activos PASSED                  [ 36%]
+tests/test_spec_002_summary.py::test_bdd_sin_filtro_incluye_todos_los_componentes PASSED                  [ 40%]
+tests/test_spec_002_summary.py::test_bdd_sqlite_incident_repository_cumple_el_puerto PASSED               [ 43%]
+tests/test_spec_002_summary.py::test_bdd_resumen_es_solo_lectura_sin_efectos_secundarios PASSED           [ 46%]
+tests/test_spec_002_summary.py::test_bdd_resumen_responde_en_menos_de_dos_segundos_con_cien_incidentes PASSED [ 50%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_http_200_conectado PASSED                          [ 53%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_http_503_doble_de_prueba PASSED                    [ 56%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_cli_exit0_conectado PASSED                         [ 60%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_cli_exit1_no_disponible PASSED                     [ 63%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_http_idempotente_repetible PASSED                  [ 66%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_http_refleja_cambio_de_estado_sin_cache PASSED     [ 70%]
+tests/test_spec_004_runtime_health.py::test_sqlite_repository_cumple_incident_repository_port PASSED      [ 73%]
+tests/test_spec_004_runtime_health.py::test_postgres_repository_cumple_incident_repository_port_estructural PASSED [ 76%]
+tests/test_spec_004_runtime_health.py::test_create_repository_esquema_sqlite PASSED                       [ 80%]
+tests/test_spec_004_runtime_health.py::test_get_incident_repository_sin_database_url_usa_sqlite_memoria PASSED [ 83%]
+tests/test_spec_004_runtime_health.py::test_create_repository_esquema_postgresql_selecciona_adaptador PASSED [ 86%]
+tests/test_spec_004_runtime_health.py::test_create_repository_esquema_no_soportado_lanza_valueerror PASSED [ 90%]
+tests/test_spec_004_runtime_health.py::test_dockerfile_usa_python312_slim_y_uv PASSED                     [ 93%]
+tests/test_spec_004_runtime_health.py::test_dockerignore_excluye_entornos_virtuales_y_artefactos_de_prueba PASSED [ 96%]
+tests/test_spec_004_runtime_health.py::test_docker_compose_declara_api_y_db_con_healthchecks_y_depends_on PASSED [100%]
+
+=============================================== warnings summary ===============================================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================================== 30 passed, 1 warning in 0.22s =========================================
 ``` 
+
+![Evidencia 2](img\entrega2\final-2.png)
+
+
+```
+PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project> uv run python -m src.adapters.inbound.cli health 
+{"status": "ok", "database": "connected"}
+```
+
+![Evidencia 3](img\entrega2\final-3.png)
+
 - **Evidencia de CLI Typer y containerización (`docker compose config` / `docker compose 
 up --build`)**: 
-```text 
-[Pega aquí la salida de al menos dos subcomandos CLI y de docker compose] 
+```text
+PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project> docker compose config -q; if ($?) { echo "Compose OK" }
+Compose OK 
+```
+
+**Intento de `docker compose up --build` (2026-11-24)**: al ejecutar el comando real para
+levantar el stack, Docker Desktop no tenía el daemon en ejecución en esta máquina:
+
+```text
+PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project> docker compose up --build
+failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine; check if the path is correct and
+if the daemon is running: open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.
+```
+
+Esto **no es un defecto de `docker-compose.yml`**: es un problema de entorno (Docker
+Desktop instalado pero no iniciado/el servicio del daemon no está corriendo), no del
+contenido del archivo. Como evidencia de que la definición del stack es válida en sí
+misma —`docker compose config` solo parsea y resuelve el archivo, no requiere que el
+daemon esté activo—, se vuelve a ejecutar con la salida completa:
+
+```text
+PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project> docker compose config
+name: starter-project
+services:
+  api:
+    build:
+      context: C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+        required: true
+    environment:
+      DATABASE_URL: postgresql://incidentops:incidentops@db:5432/incidentops
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+      timeout: 5s
+      interval: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 8000
+        published: "8000"
+        protocol: tcp
+  db:
+    environment:
+      POSTGRES_DB: incidentops
+      POSTGRES_PASSWORD: incidentops
+      POSTGRES_USER: incidentops
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U incidentops -d incidentops
+      timeout: 5s
+      interval: 5s
+      retries: 5
+      start_period: 5s
+    image: postgres:16-alpine
+    networks:
+      default: null
+    volumes:
+      - type: volume
+        source: pgdata
+        target: /var/lib/postgresql/data
+        volume: {}
+networks:
+  default:
+    name: starter-project_default
+volumes:
+  pgdata:
+    name: starter-project_pgdata
+```
+
+Esto confirma que `depends_on: db: condition: service_healthy` (FR-011), el healthcheck
+de `db` con `pg_isready` (FR-010), el volumen nombrado `pgdata` (RNF-006) y el
+`DATABASE_URL` de `api` apuntando a `db:5432` (FR-005) quedan resueltos exactamente como
+describe `specs/004-postgres-container-runtime/data-model.md`. **Pendiente**: iniciar
+Docker Desktop y repetir `docker compose up --build` para completar la sección 4 de
+`specs/004-postgres-container-runtime/quickstart.md` (validación dinámica contra
+PostgreSQL real); documentado como parcial en `tasks.md` (T029).
+
+- **Salida de `uv run pytest -v` tras el intento de `docker compose up --build`**: se
+repite la ejecución completa para confirmar que el fallo del daemon de Docker no afecta
+en nada la suite determinista (no depende de contenedores):
+
+```text
+PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project> uv run pytest -v
+============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0
+collecting ... collected 30 items
+
+tests/test_spec_001_triage.py::test_caida_critica_http_502_en_pasarela_de_pagos PASSED [  3%]
+tests/test_spec_001_triage.py::test_cuenta_individual_bloqueada_mencionando_hoy PASSED [  6%]
+tests/test_spec_001_triage.py::test_entradas_vacias_o_con_solo_espacios PASSED [ 10%]
+tests/test_spec_001_triage.py::test_paridad_en_cli PASSED                [ 13%]
+tests/test_spec_002_summary.py::test_bdd_resumen_http_incluye_incumplimientos_y_excluye_resueltos PASSED [ 16%]
+tests/test_spec_002_summary.py::test_bdd_resumen_http_vacio_sin_incidentes_activos PASSED [ 20%]
+tests/test_spec_002_summary.py::test_bdd_incidente_vencido_se_cuenta_como_incumplimiento_http PASSED [ 23%]
+tests/test_spec_002_summary.py::test_bdd_paridad_resumen_http_cli_mismo_conjunto PASSED [ 26%]
+tests/test_spec_002_summary.py::test_bdd_resumen_cli_vacio_sin_incidentes_activos PASSED [ 30%]
+tests/test_spec_002_summary.py::test_bdd_filtro_por_componente_limita_resumen PASSED [ 33%]
+tests/test_spec_002_summary.py::test_bdd_filtro_componente_sin_incidentes_activos PASSED [ 36%]
+tests/test_spec_002_summary.py::test_bdd_sin_filtro_incluye_todos_los_componentes PASSED [ 40%]
+tests/test_spec_002_summary.py::test_bdd_sqlite_incident_repository_cumple_el_puerto PASSED [ 43%]
+tests/test_spec_002_summary.py::test_bdd_resumen_es_solo_lectura_sin_efectos_secundarios PASSED [ 46%]
+tests/test_spec_002_summary.py::test_bdd_resumen_responde_en_menos_de_dos_segundos_con_cien_incidentes PASSED [ 50%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_http_200_conectado PASSED [ 53%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_http_503_doble_de_prueba PASSED [ 56%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_cli_exit0_conectado PASSED [ 60%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_cli_exit1_no_disponible PASSED [ 63%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_http_idempotente_repetible PASSED [ 66%]
+tests/test_spec_004_runtime_health.py::test_bdd_health_http_refleja_cambio_de_estado_sin_cache PASSED [ 70%]
+tests/test_spec_004_runtime_health.py::test_sqlite_repository_cumple_incident_repository_port PASSED [ 73%]
+tests/test_spec_004_runtime_health.py::test_postgres_repository_cumple_incident_repository_port_estructural PASSED [ 76%]
+tests/test_spec_004_runtime_health.py::test_create_repository_esquema_sqlite PASSED [ 80%]
+tests/test_spec_004_runtime_health.py::test_get_incident_repository_sin_database_url_usa_sqlite_memoria PASSED [ 83%]
+tests/test_spec_004_runtime_health.py::test_create_repository_esquema_postgresql_selecciona_adaptador PASSED [ 86%]
+tests/test_spec_004_runtime_health.py::test_create_repository_esquema_no_soportado_lanza_valueerror PASSED [ 90%]
+tests/test_spec_004_runtime_health.py::test_dockerfile_usa_python312_slim_y_uv PASSED [ 93%]
+tests/test_spec_004_runtime_health.py::test_dockerignore_excluye_entornos_virtuales_y_artefactos_de_prueba PASSED [ 96%]
+tests/test_spec_004_runtime_health.py::test_docker_compose_declara_api_y_db_con_healthchecks_y_depends_on PASSED [100%]
+
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 30 passed, 1 warning in 0.17s =========================
+```
+
+
+
+Docker compose
+
+```
+PS C:\Users\USUARIO\Documents\DIPLOMADO\MODULO 3\Taller autonomo\week-1\starter-project> docker compose up --build 
+[+] up 13/13
+ ✔ Image postgres:16-alpine Pulled                                                      7.9s
+[+] Building 9.6s (15/15) FINISHED
+ => [internal] load local bake definitions                                             0.0s
+ => => reading from stdin 641B                                                         0.0s
+ => [internal] load build definition from Dockerfile                                   0.0s
+ => => transferring dockerfile: 592B                                                   0.0s
+ => [internal] load metadata for ghcr.io/astral-sh/uv:latest                           1.5s
+ => [internal] load metadata for docker.io/library/python:3.12-slim                    1.3s
+ => [internal] load .dockerignore                                                      0.0s
+ => => transferring context: 160B                                                      0.0s 
+ => FROM ghcr.io/astral-sh/uv:latest@sha256:d3b601f0c7b118bc1753febf7c41cc80981df6784  1.7s 
+ => => resolve ghcr.io/astral-sh/uv:latest@sha256:d3b601f0c7b118bc1753febf7c41cc80981  0.0s 
+ => => sha256:6194b0176b3040f6b7ddcb49a3eb00c776bd1c508e0012f743d1d 19.60MB / 19.60MB  1.3s 
+ => => sha256:738af053281ffefe1f1e338797802de818be2055e29d46d982b10d1605f2e 98B / 98B  0.4s 
+ => => extracting sha256:6194b0176b3040f6b7ddcb49a3eb00c776bd1c508e0012f743d1d9dc2611  0.3s 
+ => => extracting sha256:738af053281ffefe1f1e338797802de818be2055e29d46d982b10d1605f2  0.0s 
+ => [internal] load build context                                                      0.1s
+ => => transferring context: 455.39kB                                                  0.0s
+ => [stage-0 1/6] FROM docker.io/library/python:3.12-slim@sha256:191083cdf6c7bda8c761  3.4s 
+ => => resolve docker.io/library/python:3.12-slim@sha256:191083cdf6c7bda8c76158983163  0.0s 
+ => => sha256:286d8c291daa64125703b22c3d009462bcae0b630eaa16ad5b934502c49 248B / 248B  0.1s 
+ => => sha256:e3e428093f5e80791498526d73a46eabf0e69575dc10897cf47aa 12.12MB / 12.12MB  1.0s 
+ => => sha256:30cf67d7101c07c55eef20970bc403fbde5f8600c2c4c38b4881a2d 1.29MB / 1.29MB  0.6s
+ => => sha256:40748add9f4f6f944f334cbfc286590d6e93f60fb06f6ee7ffa1b 29.84MB / 29.84MB  1.8s
+ => => extracting sha256:40748add9f4f6f944f334cbfc286590d6e93f60fb06f6ee7ffa1b894080a  0.9s
+ => => extracting sha256:30cf67d7101c07c55eef20970bc403fbde5f8600c2c4c38b4881a2da4fff  0.1s
+ => => extracting sha256:e3e428093f5e80791498526d73a46eabf0e69575dc10897cf47aa99120e4  0.5s 
+ => => extracting sha256:286d8c291daa64125703b22c3d009462bcae0b630eaa16ad5b934502c491  0.0s 
+ => [stage-0 2/6] COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv        0.5s 
+ => [stage-0 3/6] WORKDIR /app                                                         0.0s 
+ => [stage-0 4/6] COPY pyproject.toml uv.lock ./                                       0.0s 
+ => [stage-0 5/6] RUN uv sync --frozen --no-dev                                        1.1s 
+ => [stage-0 6/6] COPY src/ ./src/                                                     0.1s 
+ => exporting to image                                                                 2.5s 
+ => => exporting layers                                                                1.5s
+ => => exporting manifest sha256:bf25848a2d53fc215fa14f82979943e732ebaabf8617d14a4eb7  0.0s 
+ => => exporting config sha256:52b50f82b960c630ab400c8d2247644a2c0adc706be51d7f82171b  0.0s 
+ => => exporting attestation manifest sha256:3640324d5819192828be3e3eb5dfcebc8157d609  0.0s 
+ => => exporting manifest list sha256:f1275db5f5ea8a362b52a19b2c5732160bfeb86facfea16  0.0s 
+ => => naming to docker.io/library/starter-project-api:latest                          0.0s 
+[+] up 18/18king to docker.io/library/starter-project-api:latest                       0.9s 
+ ✔ Image postgres:16-alpine        Pulled                                               7.9s
+ ✔ Image starter-project-api       Built                                                9.9s
+ ✔ Network starter-project_default Created                                              0.0s
+ ✔ Volume starter-project_pgdata   Created                                              0.0s
+ ✔ Container starter-project-db-1  Created                                              0.1s
+ ✔ Container starter-project-api-1 Created                                              0.1s
+Attaching to api-1, db-1
+Container starter-project-db-1 Waiting 
+db-1  | The files belonging to this database system will be owned by user "postgres".       
+db-1  | This user must also own the server process.
+db-1  | 
+db-1  | The database cluster will be initialized with locale "en_US.utf8".                  
+db-1  | The default database encoding has accordingly been set to "UTF8".                   
+db-1  | The default text search configuration will be set to "english".
+db-1  |                                                                                     
+db-1  | Data page checksums are disabled.                                                   
+db-1  | 
+db-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok            
+db-1  | creating subdirectories ... ok                                                      
+db-1  | selecting dynamic shared memory implementation ... posix                            
+db-1  | selecting default max_connections ... 100
+db-1  | selecting default shared_buffers ... 128MB                                          
+db-1  | selecting default time zone ... UTC                                                 
+db-1  | creating configuration files ... ok
+db-1  | running bootstrap script ... ok                                                     
+db-1  | sh: locale: not found
+db-1  | 2026-11-24 21:04:33.904 UTC [35] WARNING:  no usable system locales were found
+db-1  | performing post-bootstrap initialization ... ok                                     
+db-1  | initdb: warning: enabling "trust" authentication for local connections
+db-1  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.                                 
+db-1  | syncing data to disk ... ok
+db-1  |                                                                                     
+db-1  |                                                                                     
+db-1  | Success. You can now start the database server using:                               
+db-1  |                                                                                     
+db-1  |     pg_ctl -D /var/lib/postgresql/data -l logfile start                             
+db-1  |                                                                                     
+db-1  | waiting for server to start....2026-11-24 21:04:34.525 UTC [41] LOG:  starting PostgreSQL 16.16 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+db-1  | 2026-11-24 21:04:34.527 UTC [41] LOG:  listening on Unix socket "/run/postgresql/.s.PGSQL.5432"                                                                                 
+db-1  | 2026-11-24 21:04:34.533 UTC [44] LOG:  database system was shut down at 2026-11-24 21:04:34 UTC                                                                                 
+db-1  | 2026-11-24 21:04:34.537 UTC [41] LOG:  database system is ready to accept connections                                                                                           
+db-1  |  done
+db-1  | server started
+db-1  | CREATE DATABASE                                                                     
+db-1  | 
+db-1  |                                                                                     
+db-1  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*         
+db-1  | 
+db-1  | waiting for server to shut down....2026-11-24 21:04:34.666 UTC [41] LOG:  received fast shutdown request                                                                        
+db-1  | 2026-11-24 21:04:34.668 UTC [41] LOG:  aborting any active transactions
+db-1  | 2026-11-24 21:04:34.670 UTC [41] LOG:  background worker "logical replication launcher" (PID 47) exited with exit code 1                                                        
+db-1  | 2026-11-24 21:04:34.670 UTC [42] LOG:  shutting down
+db-1  | 2026-11-24 21:04:34.672 UTC [42] LOG:  checkpoint starting: shutdown immediate      
+db-1  | 2026-11-24 21:04:34.746 UTC [42] LOG:  checkpoint complete: wrote 935 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.024 s, sync=0.045 s, total=0.076 s; sync files=301, longest=0.007 s, average=0.001 s; distance=4355 kB, estimate=4355 kB; lsn=0/1949CE0, redo lsn=0/1949CE0
+db-1  | 2026-11-24 21:04:34.753 UTC [41] LOG:  database system is shut down
+db-1  |  done                                                                               
+db-1  | server stopped
+db-1  |                                                                                     
+db-1  | PostgreSQL init process complete; ready for start up.                               
+db-1  |                                                                                     
+db-1  | 2026-11-24 21:04:34.795 UTC [1] LOG:  starting PostgreSQL 16.16 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+db-1  | 2026-11-24 21:04:34.795 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+db-1  | 2026-11-24 21:04:34.795 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+db-1  | 2026-11-24 21:04:34.799 UTC [1] LOG:  listening on Unix socket "/run/postgresql/.s.PGSQL.5432"                                                                                  
+db-1  | 2026-11-24 21:04:34.803 UTC [57] LOG:  database system was shut down at 2026-11-24 21:04:34 UTC                                                                                 
+db-1  | 2026-11-24 21:04:34.808 UTC [1] LOG:  database system is ready to accept connections
+Container starter-project-db-1 Healthy                                                      
+api-1  | Downloading ruff (10.2MiB)
+api-1  |  Downloaded ruff
+api-1  | Installed 7 packages in 17ms
+api-1  | INFO:     Started server process [33]
+api-1  | INFO:     Waiting for application startup.
+api-1  | INFO:     Application startup complete.                                            
+api-1  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)            
+api-1  | INFO:     127.0.0.1:34164 - "GET /health HTTP/1.1" 200 OK                          
+api-1  | INFO:     127.0.0.1:34178 - "GET /health HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:35042 - "GET /health HTTP/1.1" 200 OK
+api-1  | INFO:     127.0.0.1:35056 - "GET /health HTTP/1.1" 200 OK
+```
+
+![Evidencia 4](img\entrega2\final-4.png)
