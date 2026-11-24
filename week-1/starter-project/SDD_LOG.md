@@ -101,14 +101,19 @@ Estas tareas eran las de la falta de verificación de paridad cruzda y el que no
 1. De los tres niveles descritos por Böckeler (**Spec-first**, **Spec-anchored**, 
 **Spec-as-source**), ¿en cuál ubicas este proyecto de *IncidentOps* y por qué?
 
-
+Aunque durante la práctica se aplicó el Speckit, que sigue una definicion "spec-first", considero que el comportamiento que se tuvo, orienda más a un "spec-anchored". En sí, la práctica real orientó a que el código debe mantenerse, enmendarse según los requerimientos que vayan surgiendo y re-auditar las especificaciones después de implementar, lo cuál permite que conjuntamente, definiciones y código, puedan evolucionar a lo largo del ciclo de vida del software (de forma manual, con las correcciones y con Spec-kit, en las clarificaciones). Cada uno de los artefactos puede interpretarse como referencias vivas que cambian conforme el proyecto se refina, por lo tanto, no son desechables ni se pierden con el tiempo. 
 
 2. Böckeler advierte que los *toolkits* SDD pueden generar "montañas de Markdown" 
 difíciles de revisar para un humano. ¿Qué técnicas aplicaste (concisión en 
 `docs/ROADMAP.md`, curaduría en `clarify`/`plan`/`tasks` y pruebas deterministas en 
 `pytest`) para evitar aprobar especificaciones verbosas a ciegas? 
 
-
+Algunas de las técnicas aplicadas fueron:
+- A nivel de alcance, cada mención de límites se argumentó dentro del spec.md utilizando su referencia, lo cual evitaba que se tuviera que re-especficiar la decisión en este archivo.
+- En la curaduría que se hacía con clarify/plan/tasks, se definió un limite de especificación, priorizando los elementos relacionados con alcance, seguridad, UX y detalle técnico. Se filtró y la mayoría se dejaron como supuestos en una sola línea (supuesto que no introducian riesgo).
+- En el documento del plan.md, cuando no se tenian objetivos de rendimiento, simplemente se escribía que "no se definieron metas cuantitativas", para no inventar un presupuesto de rendimiento que no se había mencionado.
+- En el análisis, se acota a máximo 50 hallazgos, únicamente de discrepancias entre los archivos. 
+- En las pruebas deterministicas, se corrieron contra SQLiten en memoria, lo que no tenia dependencia a red o a un Postgres real. Cada elemento documentado que menciona, el número de funciones nuevas, o los resultados de los test, se comprobaron primero con los comandos, sin dejar simplemente parrafos en prosa. 
 
 ---
 ## 3. *Commands* vs. *Agent Skills*, Arquitectura Hexagonal, ADRs y Uso de *Reasoning* 
@@ -119,13 +124,13 @@ Constitución $\rightarrow$ Hito tanto en clase (`ADR-003` antes de
 `docs/constitution.md`) como en el Reto 2 (`ADR-004` y actualización de 
 `.specify/memory/constitution.md` antes de especificar e implementar el Hito `004`).
 
-
+Los comandos de speckit son pasos específicos del flujo que relacionan momentos del ciclo de la funcionalidad. Esto corren en un script de setup y pueden leer/escribir artefactos versionados de la carpeta specs/. Por otro lado, las agent skills, no o son pasos de un pipeline, sino conocimiento de referencia que Claude va usando bajo demanda. En este caso, cada skill tiene su descripción, que es comparada con la tarea que le estamos solictando (editar el domain o crear un adr). Respecto al orden causal, fue fundamental porque la constitución define que cualquier decisión que contenga, debe estar derivada de los ADRs. Ahí es donde se argumentan las alternativas y los trade-offs. Además, la parte de plan y análisis toman este documento como una ley, por lo tanto, se deben seguir los pasos para poder obtener cada artefacto y que sea utilizado por el siguiente paso. 
 
 - **Valor de la Arquitectura Hexagonal**: Explica cómo compartir `IncidentService` e 
 `IncidentRepositoryPort` facilitó exponer FastAPI, Typer y el adaptador PostgreSQL sin 
 tocar el dominio (y cómo prepara la incorporación de futuros adaptadores). 
 
-
+El `IncidentService` y el `IncidentRepositoryPort` son el punto de contacto entre la lógica de negocio y la persistencia. A nivel de código, se definen de una manera, en la que, independientemente del repositorio que se tome, sea SQLLite o Postgres, siempre se use un esquema de DATABASE_URL, donde se implementan exactamente el protocolo IncidentRepositoryPort, con los mismos métodos. Por esta razón, cuando se incorporó Postgress, no hubo necesidad de modificar el domain, ni la lógica detrás, porque solo se agregaba el repositorio y se extendía. En el caso de FastAPI o Typer, tampoco cambiaron, porque seguían llamando los mismos métodos y servicios. Aunqeu a nivel de arquitectura existan más archivos, se facilita la integración de futuros adaptadores, como MCPs, u otro motor de persistencia. 
 
 - **Uso intencional de *Reasoning / Extended Thinking* en OpenCode**: ¿En qué comandos 
 (`/speckit.clarify`, `/speckit.plan`, `/speckit.analyze`) aportó mayor valor el 
@@ -290,10 +295,7 @@ volumes:
 Esto confirma que `depends_on: db: condition: service_healthy` (FR-011), el healthcheck
 de `db` con `pg_isready` (FR-010), el volumen nombrado `pgdata` (RNF-006) y el
 `DATABASE_URL` de `api` apuntando a `db:5432` (FR-005) quedan resueltos exactamente como
-describe `specs/004-postgres-container-runtime/data-model.md`. **Pendiente**: iniciar
-Docker Desktop y repetir `docker compose up --build` para completar la sección 4 de
-`specs/004-postgres-container-runtime/quickstart.md` (validación dinámica contra
-PostgreSQL real); documentado como parcial en `tasks.md` (T029).
+describe `specs/004-postgres-container-runtime/data-model.md`. 
 
 - **Salida de `uv run pytest -v` tras el intento de `docker compose up --build`**: se
 repite la ejecución completa para confirmar que el fallo del daemon de Docker no afecta
