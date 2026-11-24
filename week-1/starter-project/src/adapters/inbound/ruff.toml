@@ -1,0 +1,9 @@
+extend = "../../../pyproject.toml"
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[lint.flake8-tidy-imports.banned-api]
+"sqlite3" = { msg = "Los adaptadores de entrada no acceden a sqlite3 directamente; usar src.adapters.outbound.factory (Constitución, Artículo 2.3 / Principio II)." }
+"src.incident_repository" = { msg = "No importar el repositorio concreto; resolver vía src.adapters.outbound.factory (Constitución, Artículo 2.3 / Principio II)." }
+"src.adapters.outbound.sqlite_repository" = { msg = "No importar el repositorio concreto; resolver vía src.adapters.outbound.factory (Constitución, Artículo 2.3 / Principio II)." }

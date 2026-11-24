@@ -232,7 +232,7 @@ Pruebas de aceptación con `pytest`, escenarios `Given/When/Then` en docstrings 
 
 ```powershell
 uv sync
-uv run pytest -q
+uv run pytest -v
 ```
 
 Ejecución manual:

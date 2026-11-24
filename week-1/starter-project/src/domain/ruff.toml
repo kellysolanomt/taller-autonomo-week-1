@@ -1,0 +1,12 @@
+extend = "../../pyproject.toml"
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[lint.flake8-tidy-imports.banned-api]
+"fastapi" = { msg = "El dominio no puede depender de FastAPI (Constitución, Artículo 2.1 / Principio II)." }
+"typer" = { msg = "El dominio no puede depender de Typer (Constitución, Artículo 2.1 / Principio II)." }
+"pydantic" = { msg = "El dominio no puede depender de Pydantic (Constitución, Artículo 2.1 / Principio II)." }
+"sqlite3" = { msg = "El dominio no puede depender de sqlite3 (Constitución, Artículo 2.1 / Principio II)." }
+"src.adapters" = { msg = "El dominio no conoce los adaptadores (Constitución, Artículo 2.1 / Principio II)." }
+"src.application" = { msg = "El dominio no conoce la capa de aplicación (Constitución, Artículo 2.1 / Principio II)." }

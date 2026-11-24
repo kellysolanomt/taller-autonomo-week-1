@@ -48,6 +48,7 @@ class Incident:
     status: IncidentStatus
     created_at: datetime
     resolved_at: Optional[datetime] = None
+    symptom_category: Optional[SymptomCategory] = None
 
 
 @dataclass(frozen=True)

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from src.domain.models import (
     ImpactScope,
+    IncidentStatus,
     SeverityLevel,
     SymptomCategory,
     TeamName,
@@ -29,3 +30,23 @@ class TriageResponseSchema(BaseModel):
     symptom_category: SymptomCategory
     impact_scope: ImpactScope
     consistency_ratio: float
+
+
+class ActiveIncidentItemSchema(BaseModel):
+    """Un incidente activo dentro del detalle de `GET /api/v1/incidents/summary`."""
+
+    incident_id: str
+    title: str
+    component: str
+    severity: SeverityLevel
+    status: IncidentStatus
+    elapsed_minutes: int
+    requires_escalation: bool
+
+
+class ActiveIncidentsSummaryResponseSchema(BaseModel):
+    """Respuesta de `GET /api/v1/incidents/summary`."""
+
+    total_active: int
+    breached_count: int
+    incidents: list[ActiveIncidentItemSchema]

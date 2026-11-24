@@ -5,7 +5,7 @@ description: Cómo redactar escenarios BDD Given/When/Then estilo Dan North en l
 
 # Escenarios BDD y pruebas de aceptación de IncidentOps
 
-Referencia: `specs/001-triage-endpoint-manual.md` §8 (escenarios de H001) y `tests/test_spec_001_triage.py` / `tests/conftest.py` (su implementación). `AGENTS.md` fija `uv run pytest -q` como verificación primaria del feature de triaje.
+Referencia: `specs/001-triage-endpoint-manual.md` §8 (escenarios de H001) y `tests/test_spec_001_triage.py` / `tests/conftest.py` (su implementación). `AGENTS.md` fija `uv run pytest -v` como verificación primaria del feature de triaje, alineado con `.specify/memory/constitution.md` (Principio V).
 
 Nota de estado: los cuatro escenarios existentes en `specs/001-triage-endpoint-manual.md` §8 y sus pruebas en `tests/test_spec_001_triage.py` son anteriores a la convención `test_bdd_*` descrita aquí (se llaman `test_caida_critica_http_502_...`, `test_cuenta_individual_bloqueada_...`, etc.). No los renombres solo para cumplir esta convención; aplícala a escenarios y pruebas nuevos, y a specs nuevas (`specs/002-...md` en adelante).
 
@@ -66,7 +66,7 @@ El feature de triaje (H001) no persiste estado: cada request es independiente y 
 
 - Cada función `test_bdd_*` obtiene su propia instancia de almacenamiento mediante una fixture dedicada (p. ej. una conexión `sqlite3` en memoria o un archivo temporal por test vía `tmp_path`), nunca una instancia global compartida entre pruebas ni el archivo de datos real del proyecto.
 - La fixture de almacenamiento se inyecta en la construcción del `api_client`/`cli_app_under_test` de ese test (composition root de prueba), igual que `create_app()` ya permite inyectar dependencias en producción; no se parchea almacenamiento con mocks que reemplacen la lógica del adaptador de salida.
-- Ninguna prueba depende del orden de ejecución ni dejar datos para la siguiente; `pytest` debe poder ejecutar cada `test_bdd_*` de forma aislada (`uv run pytest -q tests/test_spec_NNN_feature.py::test_bdd_<slug>`) con el mismo resultado que la suite completa.
+- Ninguna prueba depende del orden de ejecución ni dejar datos para la siguiente; `pytest` debe poder ejecutar cada `test_bdd_*` de forma aislada (`uv run pytest -v tests/test_spec_NNN_feature.py::test_bdd_<slug>`) con el mismo resultado que la suite completa.
 
 ## Checklist rápido
 
@@ -74,4 +74,4 @@ El feature de triaje (H001) no persiste estado: cada request es independiente y 
 2. ¿Existe una función `test_bdd_*` por cada escenario de la spec, ni más ni menos?
 3. ¿La prueba usa `api_client`/`cli_runner` + `cli_app_under_test` en vez de instanciar el framework a mano?
 4. Si el feature persiste estado, ¿cada prueba usa almacenamiento propio y aislado, sin compartir instancia ni orden de ejecución?
-5. ¿`uv run pytest -q` pasa con la nueva prueba incluida?
+5. ¿`uv run pytest -v` pasa con la nueva prueba incluida?
