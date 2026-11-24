@@ -1,0 +1,36 @@
+# Runtime reproducible de H004 (ADR-004): api + db.
+# Credenciales de desarrollo local fijas abajo; NO aptas para un entorno de producción real.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: incidentops
+      POSTGRES_PASSWORD: incidentops
+      POSTGRES_DB: incidentops
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U incidentops -d incidentops"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://incidentops:incidentops@db:5432/incidentops
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  pgdata:

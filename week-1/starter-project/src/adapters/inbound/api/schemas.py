@@ -50,3 +50,10 @@ class ActiveIncidentsSummaryResponseSchema(BaseModel):
     total_active: int
     breached_count: int
     incidents: list[ActiveIncidentItemSchema]
+
+
+class HealthResponseSchema(BaseModel):
+    """Respuesta de `GET /health` (H004): `status` "ok"/"error", `database` "connected"/"unavailable"."""
+
+    status: str
+    database: str

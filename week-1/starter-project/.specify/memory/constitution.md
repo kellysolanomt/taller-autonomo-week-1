@@ -1,27 +1,26 @@
 <!--
 Sync Impact Report
-Version change: (plantilla sin ratificar) → 1.0.0
-Ratificación: documento sin versión previa en .specify/memory/; se adopta como versión inicial
-  formal, consolidando docs/constitution.md (Vigente, 2026-11-21) y ADR-003 (Propuesto, 2026-11-21).
-Principios añadidos:
-  - I. Núcleo Determinista Único
-  - II. Arquitectura Hexagonal Estricta (ADR-003)
-  - III. Gobernanza del Stack Tecnológico (ADR-001)
-  - IV. Verificación Estática de Fronteras Hexagonales (Ruff)
-  - V. Calidad mediante Pruebas BDD Obligatorias (pytest)
-Secciones añadidas:
-  - Restricciones de Dominio y Seguridad (triaje, SLA, escalamiento, equipos, estados, duplicados,
-    seguridad SQL)
-  - Cumplimiento Operativo y Jerarquía Normativa (jerarquía Constitución > ADR > código, relación
-    con AGENTS.md, idioma, ADR obligatorio para cambios estructurales)
-  - Governance (procedimiento de enmienda, versionado semántico, revisión de cumplimiento)
-Secciones eliminadas: ninguna (placeholders de plantilla reemplazados en su totalidad).
+Version change: 1.0.0 → 1.1.0
+Ratificación: sin cambios (2026-11-21); esta enmienda solo actualiza contenido material de un
+  principio existente.
+Principios modificados:
+  - III. Gobernanza del Stack Tecnológico (ADR-001) → III. Gobernanza del Stack Tecnológico
+    (ADR-001, ADR-004): incorpora la decisión aprobada en ADR-004 — persistencia dual
+    SQLite/PostgreSQL sin ORM, driver `psycopg[binary]` para PostgreSQL, selección exclusiva vía
+    `DATABASE_URL` (`sqlite:///...` | `postgresql://...`), y timestamps como texto ISO 8601 en
+    ambos motores para paridad exacta de comparación.
+Ajustes menores de trazabilidad (no cuentan como principio nuevo):
+  - II. Arquitectura Hexagonal Estricta: aclara que `src/adapters/outbound/` hoy implementa dos
+    motores concretos (SQLite y PostgreSQL, ADR-004) detrás del mismo puerto.
+  - Restricciones de Dominio y Seguridad → Seguridad SQL: generaliza el placeholder parametrizado
+    a ambos motores (`?` en SQLite, `%s` en PostgreSQL).
+Secciones añadidas: ninguna.
+Secciones eliminadas: ninguna.
 Plantillas dependientes: no se modifican en este comando (alcance limitado a la Constitución);
-  revisar en la próxima ejecución de /speckit-plan, /speckit-tasks y /speckit-checklist que no
-  citen principios obsoletos.
-Deferred TODOs: ninguno — ver sección "Next Actions" de la respuesta del agente para brechas de
-  implementación detectadas (Ruff aún no configurado, `src/adapters/outbound/` y `ports.py`
-  pendientes de creación, `DATABASE_URL` aún no existe).
+  revisar en la próxima ejecución de /speckit-plan, /speckit-tasks y /speckit-checklist de la
+  Feature 004 que no citen el stack de persistencia obsoleto (solo SQLite).
+Deferred TODOs: ninguno — ver sección "Next Actions" de la respuesta del agente para los intents
+  no gobernados por esta enmienda (especificar la Feature 004 con /speckit-specify).
 -->
 
 # IncidentOps Constitution
@@ -52,7 +51,10 @@ mismo `IncidentService`; esta carpeta MUST quedar preparada para incorporar futu
 entrada (p. ej. MCP) reutilizando el servicio existente, sin duplicar lógica de traducción ni de
 negocio. `src/adapters/outbound/` aloja los adaptadores secundarios (persistencia, chequeos de
 conectividad); MUST ser intercambiable y seleccionarse en tiempo de ejecución a través de la
-variable `DATABASE_URL`, sin que `src/domain/` ni `src/application/` conozcan el motor concreto. La
+variable `DATABASE_URL`, sin que `src/domain/` ni `src/application/` conozcan el motor concreto.
+Hoy implementa dos motores concretos detrás del mismo `IncidentRepositoryPort` — SQLite y
+PostgreSQL (ADR-004) — y cualquier motor adicional futuro MUST integrarse del mismo modo, sin
+filtrar detalles del driver hacia el dominio o la aplicación. La
 dirección de dependencias MUST apuntar siempre hacia adentro (adaptadores → aplicación → dominio);
 el cableado concreto (composition root) y el mapeo DTO ↔ dominio ocurren en el borde, nunca en el
 núcleo.
@@ -61,18 +63,28 @@ Rationale: fijar estas fronteras es la decisión estructural más difícil de re
 (ADR-003); es lo que permite sustituir el motor de persistencia en H004, añadir un adaptador MCP
 sin tocar reglas de negocio, y probar el dominio determinista sin levantar infraestructura.
 
-### III. Gobernanza del Stack Tecnológico (ADR-001)
+### III. Gobernanza del Stack Tecnológico (ADR-001, ADR-004)
 El runtime MUST ser Python >= 3.10 gestionado con `uv`; todos los comandos se ejecutan desde
 `week-1/starter-project/`. El stack adoptado es FastAPI + Pydantic v2 para REST (la validación y
-serialización ocurren solo en el adaptador), Typer para CLI, y `sqlite3` de la biblioteca estándar
-sin ORMs ni dependencias externas de persistencia, conforme a ADR-001. Ningún motor de base de
-datos ni ORM distinto se adopta sin un ADR específico, aprobado previamente, que enmiende esta
-Constitución. Todo valor de consulta SQL MUST viajar mediante placeholders `?`; ninguna entrada de
-usuario se interpola jamás en una sentencia SQL.
+serialización ocurren solo en el adaptador), Typer para CLI, y persistencia dual sin ORM (ADR-001,
+ADR-004): `sqlite3` de la biblioteca estándar para desarrollo y pruebas, y PostgreSQL vía el driver
+`psycopg[binary]` para producción. Ningún ORM se adopta para ninguno de los dos motores: todo
+acceso a datos MUST usar SQL nativo parametrizado. El motor concreto se selecciona exclusivamente
+en tiempo de ejecución a través de `DATABASE_URL` (`sqlite:///...` o `postgresql://...`); el
+dominio y la aplicación MUST NOT conocer cuál está activo. Las fechas-hora MUST almacenarse como
+texto ISO 8601 (columnas `TEXT`) en ambos motores, para garantizar paridad exacta de comparación y
+ordenamiento entre SQLite y PostgreSQL. Ningún motor de base de datos, ORM o dependencia de
+persistencia adicional a las aquí listadas se adopta sin un ADR específico, aprobado previamente,
+que enmiende esta Constitución. Todo valor de consulta SQL MUST viajar mediante placeholders
+parametrizados (`?` en SQLite, `%s` en PostgreSQL); ninguna entrada de usuario se interpola jamás
+en una sentencia SQL.
 
-Rationale: el stack ya resuelve los requisitos de H001–H004 sin ORM pesado; cambiarlo sin ADR
-reabriría decisiones ya evaluadas (ADR-001) y podría reintroducir el patrón N+1 o el riesgo de
-inyección SQL que ADR-001 cerró explícitamente.
+Rationale: el stack ya resuelve los requisitos de H001–H004 sin ORM pesado; la persistencia dual
+(ADR-004) habilita escalado horizontal de la API en producción contra PostgreSQL sin perder la
+ejecución local ligera de SQLite para desarrollo y pruebas. Cambiar esta lista de motores o
+dependencias sin ADR reabriría decisiones ya evaluadas (ADR-001, ADR-004) y podría reintroducir el
+patrón N+1, el riesgo de inyección SQL, o divergencias de comportamiento entre motores que ambos
+ADR cerraron explícitamente.
 
 ### IV. Verificación Estática de Fronteras Hexagonales (Ruff)
 `uv run ruff check src/` MUST ejecutarse y pasar en verde antes de integrar cualquier cambio en
@@ -116,8 +128,9 @@ y son la única defensa contra regresiones silenciosas en el cálculo de SLA o e
   garantiza esa invariante.
 - **Duplicados**: clave `<component>:<symptom_category>`; solo se reportan grupos con 2 o más
   incidentes. La fusión automática queda fuera de alcance (H003).
-- **Seguridad SQL**: todos los valores viajan con placeholders `?`; `_ACTIVE_STATUSES` es una
-  constante interna fija; nunca se interpola entrada de usuario en una consulta.
+- **Seguridad SQL**: todos los valores viajan con placeholders parametrizados (`?` en SQLite, `%s`
+  en PostgreSQL); `_ACTIVE_STATUSES` es una constante interna fija; nunca se interpola entrada de
+  usuario en una consulta, en ningún motor.
 
 ## Cumplimiento Operativo y Jerarquía Normativa
 
@@ -150,4 +163,4 @@ enmiendas verbales ni cambios de regla sin su ADR correspondiente.
 (un nuevo puerto, un nuevo adaptador) MUST justificarse contra los principios aquí fijados. Use
 `AGENTS.md` como guía operativa de desarrollo en el día a día.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-21 | **Last Amended**: 2026-11-22
+**Version**: 1.1.0 | **Ratified**: 2026-11-21 | **Last Amended**: 2026-11-24

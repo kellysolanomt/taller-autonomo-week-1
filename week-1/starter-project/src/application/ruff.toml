@@ -8,4 +8,5 @@ ban-relative-imports = "parents"
 "typer" = { msg = "La aplicación no puede depender de Typer (Constitución, Artículo 2.2 / Principio II)." }
 "pydantic" = { msg = "La aplicación no puede depender de Pydantic (Constitución, Artículo 2.2 / Principio II)." }
 "sqlite3" = { msg = "La aplicación no puede depender de sqlite3 (Constitución, Artículo 2.2 / Principio II)." }
+"psycopg" = { msg = "La aplicación no puede depender de psycopg (Constitución, Artículo 2.2 / Principio II; ADR-004)." }
 "src.adapters" = { msg = "La aplicación solo conoce puertos, no adaptadores concretos (Constitución, Artículo 2.2 / Principio II)." }

@@ -21,6 +21,15 @@ def create_cli_app(service: IncidentService) -> typer.Typer:
         """CLI de IncidentOps. Usa `triage` para clasificar o `summary` para el resumen."""
 
     @app.command()
+    def health() -> None:
+        """Verifica la conectividad real con la base de datos e imprime el resultado en JSON."""
+        if service.check_health():
+            print(json.dumps({"status": "ok", "database": "connected"}, ensure_ascii=False))
+            return
+        print(json.dumps({"status": "error", "database": "unavailable"}, ensure_ascii=False))
+        raise typer.Exit(code=1)
+
+    @app.command()
     def triage(
         incident_id: str = typer.Option(..., "--incident-id"),
         raw_text: str = typer.Option(..., "--raw-text"),

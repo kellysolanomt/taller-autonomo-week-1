@@ -52,6 +52,14 @@ class IncidentService:
     def __init__(self, repository: IncidentRepositoryPort) -> None:
         self._repository = repository
 
+    def check_health(self) -> bool:
+        """Verifica la conectividad real con el repositorio inyectado (H004).
+
+        Delega exactamente en `IncidentRepositoryPort.check_health()`; no añade ninguna
+        regla de negocio ni transforma el resultado (data-model.md → `IncidentService.check_health()`).
+        """
+        return self._repository.check_health()
+
     def triage_incident(self, incident_id: str, raw_text: str) -> TriageResult:
         """Valida la solicitud y clasifica el reporte de incidente.
 

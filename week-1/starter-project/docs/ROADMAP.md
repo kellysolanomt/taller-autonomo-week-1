@@ -17,8 +17,8 @@ Hoja de ruta de producto y operaciones. Los hitos se presentan en orden de evolu
 
 ## H003 — Ciclo de vida, duplicados y SLA
 
-- **Objetivo:** Registrar incidentes entrantes de forma persistente, alertar cuando ya exista otro equivalente abierto y auditar su SLA en cualquier instante de referencia.
-- **Resultados esperados:** Los incidentes quedan registrados y consultables en el tiempo; los duplicados abiertos se señalan al ingresar uno nuevo; el estado de SLA puede evaluarse para cualquier instante de referencia.
+- **Objetivo:** Registrar incidentes entrantes de forma persistente, alertar cuando ya exista otro equivalente abierto y auditar su SLA en cualquier instante de referencia, con el mismo comportamiento disponible desde la API HTTP y desde la herramienta CLI.
+- **Resultados esperados:** Los incidentes quedan registrados y consultables en el tiempo; los duplicados abiertos se señalan al ingresar uno nuevo; el estado de SLA puede evaluarse para cualquier instante de referencia; estas tres capacidades se comportan de forma idéntica tanto por la API HTTP como desde el CLI.
 - **Fuera de alcance:** Fusión automática de duplicados, escalamiento o reasignación automática, edición del historial de incidentes y políticas de retención o archivado.
 
 ## H004 — Persistencia relacional dedicada y runtime en contenedores

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from src.adapters.inbound.api.schemas import (
     ActiveIncidentsSummaryResponseSchema,
+    HealthResponseSchema,
     TriageRequestSchema,
     TriageResponseSchema,
 )
@@ -32,6 +33,18 @@ def create_app(service: Optional[IncidentService] = None) -> FastAPI:
         except ValidationError as exc:
             return JSONResponse(status_code=422, content={"error": str(exc)})
         return TriageResponseSchema(**asdict(result))
+
+    @app.get("/health")
+    def health() -> JSONResponse:
+        if service.check_health():
+            return JSONResponse(
+                status_code=200,
+                content=HealthResponseSchema(status="ok", database="connected").model_dump(),
+            )
+        return JSONResponse(
+            status_code=503,
+            content=HealthResponseSchema(status="error", database="unavailable").model_dump(),
+        )
 
     @app.get(
         "/api/v1/incidents/summary",
